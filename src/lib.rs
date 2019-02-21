@@ -43,7 +43,7 @@
 //! substring weight by `MIN`.
 //!
 //! To compute the index for `L` we must iteratively multiply an accumulator
-//! by `MAX - MIN + 1` of the current substring `N`, add the substring`s index
+//! by `MAX - MIN + 1` of the current substring `N`, add the substring's index
 //! from the tree, then shift the number over by the substring width to get
 //! `N + 1`.
 //!

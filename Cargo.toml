@@ -5,3 +5,11 @@ authors = ["Geordon Worley <vadixidav@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+
+[dev-dependencies]
+criterion = "0.2.10"
+rand = "0.6.5"
+
+[[bench]]
+name = "benches"
+harness = false

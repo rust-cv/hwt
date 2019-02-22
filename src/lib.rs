@@ -54,7 +54,7 @@
 //! We should avoid computing the weights from the index more than once
 //! per operation if possible because it is costly due to modulo and division.
 
-mod indices;
+pub mod indices;
 
 use indices::*;
 

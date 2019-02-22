@@ -24,7 +24,7 @@ pub fn indices128(v: u128) -> ([usize; 7], [usize; 7]) {
             halves[0].0[5] + halves[1].0[5] * halves[0].1[5],
         ],
         [
-            (lmax - lmin) as usize,
+            (lmax - lmin + 1) as usize,
             halves[0].1[0] * halves[1].1[0],
             halves[0].1[1] * halves[1].1[1],
             halves[0].1[2] * halves[1].1[2],
@@ -58,7 +58,7 @@ pub fn indices64(v: u64) -> ([usize; 6], [usize; 6]) {
             halves[0].0[4] + halves[1].0[4] * halves[0].1[4],
         ],
         [
-            (lmax - lmin) as usize,
+            (lmax - lmin + 1) as usize,
             halves[0].1[0] * halves[1].1[0],
             halves[0].1[1] * halves[1].1[1],
             halves[0].1[2] * halves[1].1[2],
@@ -90,7 +90,7 @@ pub fn indices32(v: u32) -> ([usize; 5], [usize; 5]) {
             halves[0].0[3] + halves[1].0[3] * halves[0].1[3],
         ],
         [
-            (lmax - lmin) as usize,
+            (lmax - lmin + 1) as usize,
             halves[0].1[0] * halves[1].1[0],
             halves[0].1[1] * halves[1].1[1],
             halves[0].1[2] * halves[1].1[2],
@@ -120,7 +120,7 @@ pub fn indices16(v: u16) -> ([usize; 4], [usize; 4]) {
             halves[0].0[2] + halves[1].0[2] * halves[0].1[2],
         ],
         [
-            (lmax - lmin) as usize,
+            (lmax - lmin + 1) as usize,
             halves[0].1[0] * halves[1].1[0],
             halves[0].1[1] * halves[1].1[1],
             halves[0].1[2] * halves[1].1[2],
@@ -149,7 +149,7 @@ pub fn indices8(v: u8) -> ([usize; 3], [usize; 3]) {
             halves[0].0[1] + halves[1].0[1] * halves[0].1[1],
         ],
         [
-            (lmax - lmin) as usize,
+            (lmax - lmin + 1) as usize,
             halves[0].1[0] * halves[1].1[0],
             halves[0].1[1] * halves[1].1[1],
         ],
@@ -173,7 +173,7 @@ pub fn indices4(v: u8) -> ([usize; 2], [usize; 2]) {
             (left - lmin) as usize,
             halves[0].0[0] + halves[1].0[0] * halves[0].1[0],
         ],
-        [(lmax - lmin) as usize, halves[0].1[0] * halves[1].1[0]],
+        [(lmax - lmin + 1) as usize, halves[0].1[0] * halves[1].1[0]],
     )
 }
 
@@ -185,5 +185,27 @@ pub fn indices2(v: u8) -> ([usize; 1], [usize; 1]) {
         ([0], [1])
     } else {
         ([(v >> 1) as usize], [2])
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_indices2() {
+        assert_eq!(indices2(0b00), ([0], [1]));
+        assert_eq!(indices2(0b01), ([0], [2]));
+        assert_eq!(indices2(0b10), ([1], [2]));
+        assert_eq!(indices2(0b11), ([0], [1]));
+    }
+
+    #[test]
+    fn test_indices4() {
+        assert_eq!(indices4(0b00_00), ([0, 0], [1, 1]));
+        assert_eq!(indices4(0b00_10), ([0, 1], [2, 2]));
+        assert_eq!(indices4(0b10_00), ([1, 1], [2, 2]));
+        assert_eq!(indices4(0b11_10), ([1, 1], [2, 2]));
+        assert_eq!(indices4(0b11_11), ([0, 0], [1, 1]));
     }
 }

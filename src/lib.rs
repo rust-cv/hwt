@@ -33,7 +33,7 @@
 //! ```no_build
 //!        5                   [1-4]                   1
 //!    3       2         [1-2]       [1-2]         2       1
-//!  2   1   1   1    [1-1] [0-1] [0-1] [0-1]    _   0   1   0
+//!  2   1   1   1    [1-1] [0-1] [0-1] [0-1]    0   0   1   0
 //! 1 1 0 1 1 0 0 1
 //! ```
 //!
@@ -53,6 +53,10 @@
 //! Do this iteratively to produce all weights for a given index.
 //! We should avoid computing the weights from the index more than once
 //! per operation if possible because it is costly due to modulo and division.
+
+mod indices;
+
+use indices::*;
 
 const HIGH: u32 = 0x8000_0000;
 
@@ -126,9 +130,4 @@ impl Default for Hwt {
             count: 0,
         }
     }
-}
-
-/// Computes the string of indices to look up traversing down the tree.
-fn indices(num: u128) -> [usize; 7] {
-    unimplemented!()
 }

@@ -97,8 +97,10 @@ impl Hwt {
     ///
     /// ```
     /// # use hwt::Hwt;
-    /// let hwt = Hwt::new();
+    /// let mut hwt = Hwt::new();
     /// assert!(hwt.is_empty());
+    /// hwt.insert(0b101, 0, |_| 0b010);
+    /// assert!(!hwt.is_empty());
     /// ```
     pub fn is_empty(&self) -> bool {
         self.count == 0

@@ -62,10 +62,12 @@ use std::iter::repeat;
 const HIGH: u32 = 0x8000_0000;
 
 pub struct Hwt {
-    /// The u32 points to a location in the internals array that is the
-    /// start of a slice of internal or leaf node indices. If an internal
+    /// The u32 points to a location in the `internal_indices` array that is
+    /// the start of a slice of internal or leaf node indices. If an internal
     /// has a high bit set to `1` then it is a leaf node.
     internals: Vec<u32>,
+    /// Contains the full width index into the `internals`.
+    internal_indices: Vec<usize>,
     count: usize,
 }
 
@@ -140,7 +142,7 @@ impl Hwt {
                 }
                 internal if internal & HIGH == 0 => {
                     // Go to the next node.
-                    node = internal as usize + indices[i];
+                    node = self.internal_indices[internal as usize] + indices[i];
                 }
                 leaf => {
                     // Check if the leaf is the same as this `item`.
@@ -151,40 +153,54 @@ impl Hwt {
                     }
                     // Get the leaf's indices. The size of any table we care
                     // about is the same as this `item`.
-                    let (leaf_indices, _) = indices128(lookup(leaf & !HIGH));
+                    let leaf_feature = lookup(leaf & !HIGH);
+                    let (leaf_indices, _) = indices128(leaf_feature);
                     // Iterate and make more child nodes until the `item` and
                     // the leaf differ.
                     for i in i..7 {
                         // Allocate the space for the next bucket.
                         // This will always be the same between both items.
-                        let location = self.internals.len() as u32;
-                        self.internals.extend(repeat(0).take(sizes[i]));
+                        let internal_location = self.internals.len();
                         // Ensure the bucket index hasn't gotten larger than
                         // the max.
-                        // TODO: Probably should be fixed by having a separate
-                        // lookup table. This shouldn't be hit except in sets
-                        // with hundreds of millions of items.
+                        let location = self.internal_indices.len() as u32;
                         assert!(location & HIGH == 0);
+                        self.internals.extend(repeat(0).take(sizes[i]));
+                        self.internal_indices.push(internal_location);
                         // Add the bucket to this parent node.
                         self.internals[node] = location;
+                        // Update the node to be this node.
+                        node = internal_location + indices[i];
                         // Check if the indices are different.
                         if leaf_indices[i] != indices[i] {
                             // If they finally differ, we can add them to
                             // different spots and return.
-                            self.internals[location as usize + leaf_indices[i]] = leaf;
-                            self.internals[location as usize + indices[i]] = item | HIGH;
+                            self.internals[internal_location + leaf_indices[i]] = leaf;
+                            self.internals[node] = item | HIGH;
                             self.count += 1;
                             return None;
                         }
                         // If they are the same, we should do it again.
                     }
                     panic!(
-                        "hwt::Hwt::insert(): different items not supposed to land in the same spot"
+                        "hwt::Hwt::insert(): different items not supposed to land in the same spot: {:X}, {:X}, {:X?}, {:X?}",
+                        feature, leaf_feature, indices, leaf_indices
                     );
                 }
             }
         }
-        panic!("hwt::Hwt::insert(): got an internal node at index 6");
+        match self.internals[node] {
+            0 => {
+                self.internals[node] = item | HIGH;
+                self.count += 1;
+                None
+            }
+            leaf if leaf & HIGH != 0 => {
+                self.internals[node] = item | HIGH;
+                Some(leaf & !HIGH)
+            }
+            _ => panic!("hwt::Hwt::insert(): got an internal node at end of tree"),
+        }
     }
 
     /// Looks up an item ID from the `Hwt`.
@@ -212,7 +228,9 @@ impl Hwt {
         for &index in &indices {
             match self.internals[node] {
                 0 => return None,
-                internal if internal & HIGH == 0 => node = internal as usize + index,
+                internal if internal & HIGH == 0 => {
+                    node = self.internal_indices[internal as usize] + index;
+                }
                 leaf => return Some(leaf & !HIGH),
             }
         }
@@ -228,6 +246,7 @@ impl Default for Hwt {
         // `NBits + 1` child nodes.
         Self {
             internals: vec![0; 129],
+            internal_indices: vec![0],
             count: 0,
         }
     }

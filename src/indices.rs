@@ -130,6 +130,7 @@ pub fn indices16(v: u16) -> ([usize; 4], [usize; 4]) {
 
 /// Compute the indices for an 8-bit integer,
 /// along with the overall `MAX - MIN`.
+#[inline(always)]
 pub fn indices8(v: u8) -> ([usize; 3], [usize; 3]) {
     const NBITS: u32 = 8;
     const HBITS: u32 = NBITS / 2;
@@ -158,6 +159,7 @@ pub fn indices8(v: u8) -> ([usize; 3], [usize; 3]) {
 
 /// Compute the indices for a 4-bit integer,
 /// along with the overall `MAX - MIN`.
+#[inline(always)]
 pub fn indices4(v: u8) -> ([usize; 2], [usize; 2]) {
     const NBITS: u32 = 4;
     const HBITS: u32 = NBITS / 2;
@@ -179,13 +181,12 @@ pub fn indices4(v: u8) -> ([usize; 2], [usize; 2]) {
 
 /// Compute the indices for a 2-bit integer,
 /// along with the overall `MAX - MIN`.
+#[inline(always)]
 pub fn indices2(v: u8) -> ([usize; 1], [usize; 1]) {
-    let ones = v.count_ones();
-    if ones == 2 || ones == 0 {
-        ([0], [1])
-    } else {
-        ([(v >> 1) as usize], [2])
-    }
+    let different = (v >> 1) ^ (v & 0b1);
+    let possibilities = different + 1;
+    let choice = different & (v >> 1);
+    ([choice as usize], [possibilities as usize])
 }
 
 #[cfg(test)]

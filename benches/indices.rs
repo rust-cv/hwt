@@ -6,7 +6,7 @@ use rand::{Rng, SeedableRng};
 fn bench_indices(c: &mut Criterion) {
     let mut rng = SmallRng::from_seed([5; 16]);
     c.bench_functions(
-        "indices_over_32768_samples",
+        "indices_over_1024_samples",
         vec![
             Fun::new("indices2", |bencher: &mut Bencher, input: &Vec<u128>| {
                 bencher.iter(|| {
@@ -73,7 +73,7 @@ fn bench_indices(c: &mut Criterion) {
             }),
         ],
         rng.sample_iter(&rand::distributions::Standard)
-            .take(32768)
+            .take(1 << 10)
             .collect::<Vec<u128>>(),
     );
 }

@@ -212,6 +212,76 @@
 //! `2..=3`
 //!
 //! This is the range we expected.
+//!
+//! We may need to clip the range to be inside the bucket as well, since the
+//! radius might cover a bigger set of hamming distances than the range.
+//!
+//! Now we wish to find all combinations of substrings that result in getting
+//! below the radius. To do this we need to know the `SOD` at each index we
+//! search in a given substring. To do that we must describe the relationship
+//! between `TL` and `SOD`.
+//!
+//! There are three phases in the iteration pattern over `TL`. The first is
+//! when the `radius` is going down, the second is when it stays flat, the
+//! third is when it is going up. The test in the last part made sure the
+//! bottom was above the radius. We need to compute the points at which the
+//! slope becomes 0, which are the inflection points. Luckily, these are
+//! trivial to calculate. They are when the inside of the `abs` expressions
+//! in `SOD` is equal to `0`:
+//!
+//! `TL - SL = 0`
+//!
+//! `TR - SR = 0`
+//!
+//! We also know that `TR = TW - TL`, so we can rewrite this in terms of `TL`:
+//!
+//! `TW - TL - SR = 0`
+//!
+//! We care about `TL` when we hit the inflection point:
+//!
+//! `TL = -SL`
+//!
+//! `TL = -SR + TW`
+//!
+//! We dont care which inflection point we hit first, we just want to know
+//! where it is. We can just take the `min` and `max` of these two
+//! expressions to get the beginning and ending of the flat part of the curve.
+//!
+//! Now we want to solve for the `SOD`. Just like last time, we start with `TL`
+//! being lower that `SL` and `TR` being higher than `SR`.
+//!
+//! `(SL - TL) + (TW - TL - SR) = SOD`
+//!
+//! `(TL - SL) + (SR - TW + TL) = SOD`
+//!
+//! We can simplify these to make it a bit clearer:
+//!
+//! `C = SL - SR + TW`
+//!
+//! `-2TL + C = SOD`
+//!
+//! `2TL - C = SOD`
+//!
+//! It starts by going down with a slope of `-2` and ends going up with a slope
+//! of `2` just like we expect.
+//!
+//! We can use this expression to compute the `SOD` for each part of iteration.
+//!
+//! Now the iteration is split into three parts:
+//!
+//! `(-radius + C) / 2..-SL` (`SOD = -2TL + C`)
+//! `-SL..-SR + TW` (`SOD = 2SL + C`)
+//! `-SR + TW..=(radius + C) / 2` (`SOD = 2TL - C`)
+//!
+//! We can also simplify the test from before to just test the constant part.
+//!
+//! If `2SL + C <= radius` then it intersects.
+//!
+//! At this point we can compute the `SOD` over all of our input indices. Now
+//! we iterate over all input indices specificed, compute their `SOD`, and then
+//! perform a search over subsequent substrings by passing them a `new_radius`
+//! of `new_radius = radius - SOD`. This guarantees that all paths in that
+//! substring also dont exceed the total `SOD` for all substrings in the level.
 
 pub mod indices;
 

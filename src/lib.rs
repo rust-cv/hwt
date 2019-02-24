@@ -239,7 +239,7 @@
 //!
 //! We care about `TL` when we hit the inflection point:
 //!
-//! `TL = -SL`
+//! `TL = SL`
 //!
 //! `TL = -SR + TW`
 //!
@@ -269,13 +269,13 @@
 //!
 //! Now the iteration is split into three parts:
 //!
-//! `(-radius + C) / 2..-SL` (`SOD = -2TL + C`)
-//! `-SL..-SR + TW` (`SOD = 2SL + C`)
+//! `(-radius + C) / 2..SL` (`SOD = -2TL + C`)
+//! `SL..-SR + TW` (`SOD = -2SL + C`)
 //! `-SR + TW..=(radius + C) / 2` (`SOD = 2TL - C`)
 //!
 //! We can also simplify the test from before to just test the constant part.
 //!
-//! If `2SL + C <= radius` then it intersects.
+//! If `-2SL + C <= radius` then it intersects.
 //!
 //! At this point we can compute the `SOD` over all of our input indices. Now
 //! we iterate over all input indices specificed, compute their `SOD`, and then
@@ -284,8 +284,10 @@
 //! substring also dont exceed the total `SOD` for all substrings in the level.
 
 pub mod indices;
+pub mod search;
 
 use indices::*;
+use search::*;
 use std::iter::repeat;
 
 const HIGH: u32 = 0x8000_0000;
@@ -468,13 +470,13 @@ impl Hwt {
         None
     }
 
-    /// Find all neighbors within a given radius.
-    pub fn neighbors<F>(&self, radius: u32, feature: u128, lookup: F) -> impl Iterator<Item = u32>
-    where
-        F: FnMut(u32) -> u128,
-    {
-        unimplemented!()
-    }
+    // /// Find all neighbors within a given radius.
+    // pub fn neighbors<F>(&self, radius: u32, feature: u128, lookup: F) -> impl Iterator<Item = u32>
+    // where
+    //     F: FnMut(u32) -> u128,
+    // {
+    //     unimplemented!()
+    // }
 }
 
 impl Default for Hwt {

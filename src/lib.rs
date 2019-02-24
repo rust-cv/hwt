@@ -85,8 +85,9 @@ impl Hwt {
     ///
     /// ```
     /// # use hwt::Hwt;
-    /// let hwt = Hwt::new();
-    /// assert_eq!(hwt.len(), 0);
+    /// let mut hwt = Hwt::new();
+    /// hwt.insert(0b101, 0, |_| 0b010);
+    /// assert_eq!(hwt.len(), 1);
     /// ```
     pub fn len(&self) -> usize {
         self.count

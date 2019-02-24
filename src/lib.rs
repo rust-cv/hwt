@@ -114,7 +114,7 @@ impl Hwt {
     /// let mut hwt = Hwt::new();
     /// hwt.insert(0b101, 0, |_| 0b010);
     /// hwt.insert(0b010, 1, |_| 0b101);
-    /// assert!(hwt.len() == 2);
+    /// assert_eq!(hwt.len(), 2);
     /// ```
     pub fn insert<F>(&mut self, feature: u128, item: u32, mut lookup: F) -> Option<u32>
     where
@@ -182,6 +182,38 @@ impl Hwt {
             }
         }
         panic!("hwt::Hwt::insert(): got an internal node at index 6");
+    }
+
+    /// Looks up an item ID from the `Hwt`.
+    ///
+    /// Returns `Some(t)` if item `t` was in the `Hwt`, otherwise `None`.
+    ///
+    /// ```
+    /// # use hwt::Hwt;
+    /// let mut hwt = Hwt::new();
+    /// hwt.insert(0b101, 0, |_| 0b010);
+    /// hwt.insert(0b010, 1, |_| 0b101);
+    /// assert_eq!(hwt.get(0b101), Some(0));
+    /// assert_eq!(hwt.get(0b010), Some(1));
+    /// assert_eq!(hwt.get(0b000), None);
+    /// assert_eq!(hwt.get(0b111), None);
+    /// ```
+    pub fn get(&mut self, feature: u128) -> Option<u32> {
+        // Compute the indices of the buckets and the sizes of the buckets
+        // for each layer of the tree.
+        let (indices, _) = indices128(feature);
+        // The first index in the tree is actually the overall weight of
+        // the whole number.
+        let weight = feature.count_ones() as usize;
+        let mut node = weight;
+        for &index in &indices {
+            match self.internals[node] {
+                0 => return None,
+                internal if internal & HIGH == 0 => node = internal as usize + index,
+                leaf => return Some(leaf & !HIGH),
+            }
+        }
+        None
     }
 }
 

@@ -57,6 +57,7 @@
 pub mod indices;
 
 use indices::*;
+use std::iter::repeat;
 
 const HIGH: u32 = 0x8000_0000;
 
@@ -110,12 +111,77 @@ impl Hwt {
     ///
     /// ```
     /// # use hwt::Hwt;
-    /// let hwt = Hwt::new();
-    /// assert!(hwt.is_empty());
+    /// let mut hwt = Hwt::new();
+    /// hwt.insert(0b101, 0, |_| 0b010);
+    /// hwt.insert(0b010, 1, |_| 0b101);
+    /// assert!(hwt.len() == 2);
     /// ```
-    pub fn insert(&mut self, feature: u128, item: u32) -> Option<u32> {
+    pub fn insert<F>(&mut self, feature: u128, item: u32, mut lookup: F) -> Option<u32>
+    where
+        F: FnMut(u32) -> u128,
+    {
         assert_eq!(item & HIGH, 0);
-        unimplemented!()
+        // Compute the indices of the buckets and the sizes of the buckets
+        // for each layer of the tree.
+        let (indices, sizes) = indices128(feature);
+        // The first index in the tree is actually the overall weight of
+        // the whole number.
+        let weight = feature.count_ones() as usize;
+        let mut node = weight;
+        for i in 0..7 {
+            match self.internals[node] {
+                0 => {
+                    self.internals[node] = item | HIGH;
+                    self.count += 1;
+                    return None;
+                }
+                internal if internal & HIGH == 0 => {
+                    // Go to the next node.
+                    node = internal as usize + indices[i];
+                }
+                leaf => {
+                    // Check if the leaf is the same as this `item`.
+                    if leaf & !HIGH == item {
+                        // Replace it.
+                        self.internals[node] = item | HIGH;
+                        return Some(leaf & !HIGH);
+                    }
+                    // Get the leaf's indices. The size of any table we care
+                    // about is the same as this `item`.
+                    let (leaf_indices, _) = indices128(lookup(leaf & !HIGH));
+                    // Iterate and make more child nodes until the `item` and
+                    // the leaf differ.
+                    for i in i..7 {
+                        // Allocate the space for the next bucket.
+                        // This will always be the same between both items.
+                        let location = self.internals.len() as u32;
+                        self.internals.extend(repeat(0).take(sizes[i]));
+                        // Ensure the bucket index hasn't gotten larger than
+                        // the max.
+                        // TODO: Probably should be fixed by having a separate
+                        // lookup table. This shouldn't be hit except in sets
+                        // with hundreds of millions of items.
+                        assert!(location & HIGH == 0);
+                        // Add the bucket to this parent node.
+                        self.internals[node] = location;
+                        // Check if the indices are different.
+                        if leaf_indices[i] != indices[i] {
+                            // If they finally differ, we can add them to
+                            // different spots and return.
+                            self.internals[location as usize + leaf_indices[i]] = leaf;
+                            self.internals[location as usize + indices[i]] = item | HIGH;
+                            self.count += 1;
+                            return None;
+                        }
+                        // If they are the same, we should do it again.
+                    }
+                    panic!(
+                        "hwt::Hwt::insert(): different items not supposed to land in the same spot"
+                    );
+                }
+            }
+        }
+        panic!("hwt::Hwt::insert(): got an internal node at index 6");
     }
 }
 

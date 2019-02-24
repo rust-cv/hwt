@@ -5,81 +5,119 @@ use rand::{Rng, SeedableRng};
 
 fn bench_indices(c: &mut Criterion) {
     let mut rng = SmallRng::from_seed([5; 16]);
-    c.bench_functions(
-        "indices_over_1024_samples",
-        vec![
-            Fun::new("indices2", |bencher: &mut Bencher, input: &Vec<u128>| {
-                bencher.iter(|| {
-                    input
-                        .iter()
-                        .cloned()
-                        .map(|i| indices2(i as u8 & 0b11).0[0])
-                        .sum::<usize>()
-                });
-            }),
-            Fun::new("indices4", |bencher: &mut Bencher, input: &Vec<u128>| {
-                bencher.iter(|| {
-                    input
-                        .iter()
-                        .cloned()
-                        .map(|i| indices4(i as u8 & 0b1111).0[0])
-                        .sum::<usize>()
-                });
-            }),
-            Fun::new("indices8", |bencher: &mut Bencher, input: &Vec<u128>| {
-                bencher.iter(|| {
-                    input
-                        .iter()
-                        .cloned()
-                        .map(|i| indices8(i as u8).0[0])
-                        .sum::<usize>()
-                });
-            }),
-            Fun::new("indices16", |bencher: &mut Bencher, input: &Vec<u128>| {
-                bencher.iter(|| {
-                    input
-                        .iter()
-                        .cloned()
-                        .map(|i| indices16(i as u16).0[0])
-                        .sum::<usize>()
-                });
-            }),
-            Fun::new("indices32", |bencher: &mut Bencher, input: &Vec<u128>| {
-                bencher.iter(|| {
-                    input
-                        .iter()
-                        .cloned()
-                        .map(|i| indices32(i as u32).0[0])
-                        .sum::<usize>()
-                });
-            }),
-            Fun::new("indices64", |bencher: &mut Bencher, input: &Vec<u128>| {
-                bencher.iter(|| {
-                    input
-                        .iter()
-                        .cloned()
-                        .map(|i| indices64(i as u64).0[0])
-                        .sum::<usize>()
-                });
-            }),
-            Fun::new("indices128", |bencher: &mut Bencher, input: &Vec<u128>| {
-                bencher.iter(|| {
-                    input
-                        .iter()
-                        .cloned()
-                        .map(|i| indices128(i as u128).0[0])
-                        .sum::<usize>()
-                });
-            }),
-        ],
-        rng.sample_iter(&rand::distributions::Standard)
-            .take(1 << 10)
-            .collect::<Vec<u128>>(),
+    let original_input = rng
+        .sample_iter(&rand::distributions::Standard)
+        .take(1 << 10)
+        .collect::<Vec<u128>>();
+
+    let input = original_input.clone();
+    c.bench(
+        "indices_2^10_samples",
+        Benchmark::new("indices2", move |bencher: &mut Bencher| {
+            bencher.iter(|| {
+                input
+                    .iter()
+                    .cloned()
+                    .map(|i| indices2(i as u8 & 0b11).0[0])
+                    .sum::<usize>()
+            });
+        })
+        .throughput(Throughput::Elements(1 << 10)),
+    );
+
+    let input = original_input.clone();
+    c.bench(
+        "indices_2^10_samples",
+        Benchmark::new("indices4", move |bencher: &mut Bencher| {
+            bencher.iter(|| {
+                input
+                    .iter()
+                    .cloned()
+                    .map(|i| indices4(i as u8 & 0b1111).0[0])
+                    .sum::<usize>()
+            });
+        })
+        .throughput(Throughput::Elements(1 << 10)),
+    );
+
+    let input = original_input.clone();
+    c.bench(
+        "indices_2^10_samples",
+        Benchmark::new("indices8", move |bencher: &mut Bencher| {
+            bencher.iter(|| {
+                input
+                    .iter()
+                    .cloned()
+                    .map(|i| indices8(i as u8).0[0])
+                    .sum::<usize>()
+            });
+        })
+        .throughput(Throughput::Elements(1 << 10)),
+    );
+
+    let input = original_input.clone();
+    c.bench(
+        "indices_2^10_samples",
+        Benchmark::new("indices16", move |bencher: &mut Bencher| {
+            bencher.iter(|| {
+                input
+                    .iter()
+                    .cloned()
+                    .map(|i| indices16(i as u16).0[0])
+                    .sum::<usize>()
+            });
+        })
+        .throughput(Throughput::Elements(1 << 10)),
+    );
+
+    let input = original_input.clone();
+    c.bench(
+        "indices_2^10_samples",
+        Benchmark::new("indices32", move |bencher: &mut Bencher| {
+            bencher.iter(|| {
+                input
+                    .iter()
+                    .cloned()
+                    .map(|i| indices32(i as u32).0[0])
+                    .sum::<usize>()
+            });
+        })
+        .throughput(Throughput::Elements(1 << 10)),
+    );
+
+    let input = original_input.clone();
+    c.bench(
+        "indices_2^10_samples",
+        Benchmark::new("indices64", move |bencher: &mut Bencher| {
+            bencher.iter(|| {
+                input
+                    .iter()
+                    .cloned()
+                    .map(|i| indices64(i as u64).0[0])
+                    .sum::<usize>()
+            });
+        })
+        .throughput(Throughput::Elements(1 << 10)),
+    );
+
+    let input = original_input.clone();
+    c.bench(
+        "indices_2^10_samples",
+        Benchmark::new("indices128", move |bencher: &mut Bencher| {
+            bencher.iter(|| {
+                input
+                    .iter()
+                    .cloned()
+                    .map(|i| indices128(i as u128).0[0])
+                    .sum::<usize>()
+            });
+        })
+        .throughput(Throughput::Elements(1 << 10)),
     );
 }
 
 fn config() -> Criterion {
-    Criterion::default()
+    Criterion::default().sample_size(30)
 }
 
 criterion_group! {

@@ -477,26 +477,35 @@ impl Hwt {
     where
         F: Fn(u32) -> u128,
     {
-        // Manually compute the range of `tw` for the root node.
+        // Manually compute the range of `tw` (which is also index)
+        // for the root node since it is unique.
         let sw = feature.count_ones() as i32;
         let start = max(0, sw - radius as i32) as u32;
         let end = min(128, sw + radius as i32) as u32;
-        // Iterate over every tw in the root.
-        self.neighbors_scan(radius, feature, 0, lookup, start..=end, |_, _, _, _, _| {
-            [].iter().cloned()
-        })
+        // Iterate over every applicable index in the root.
+        self.neighbors_scan(
+            radius,
+            feature,
+            0,
+            &(),
+            lookup,
+            start..=end,
+            |_, _, _, _, _, _| [].iter().cloned(),
+        )
     }
 
     /// Search the given `bucket` with the `indices` iterator, using `subtable`
     /// to recursively iterate over buckets found inside this bucket.
-    fn neighbors_scan<'a, F: 'a, I: 'a>(
+    #[allow(clippy::too_many_arguments)]
+    fn neighbors_scan<'a, F: 'a, I: 'a, TWS: 'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
+        tws: &'a TWS,
         lookup: &'a F,
         indices: impl Iterator<Item = u32> + 'a,
-        subtable: impl Fn(&'a Self, u32, u128, usize, &'a F) -> I + 'a,
+        subtable: impl Fn(&'a Self, u32, u128, usize, &'a TWS, &'a F) -> I + 'a,
     ) -> impl Iterator<Item = u32> + 'a
     where
         F: Fn(u32) -> u128,
@@ -518,7 +527,7 @@ impl Hwt {
                 // Internal
                 internal => either::Right({
                     let bucket = self.internal_indices[internal as usize];
-                    subtable(self, radius, feature, bucket, lookup)
+                    subtable(self, radius, feature, bucket, tws, lookup)
                 }),
             }
         })

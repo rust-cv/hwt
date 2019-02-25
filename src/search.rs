@@ -8,7 +8,7 @@ pub fn search64(
     feature: u128,
     tws: [u32; 32],
     radius: u32,
-) -> impl Iterator<Item = (u32, u32, u32)> {
+) -> impl Iterator<Item = (u32, u32, u32, [u32; 64])> {
     const NPAIRS: u32 = 32;
     // Get the mask for the substring couples.
     let mask = (1u128 << (bits * NPAIRS)) - 1;
@@ -24,7 +24,7 @@ pub fn search64(
         ],
         radius,
     );
-    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size)| {
+    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size, low_tws)| {
         let high_indices = search32(
             bits,
             substrings[1],
@@ -34,11 +34,77 @@ pub fn search64(
             ],
             radius - low_sod,
         );
-        high_indices.map(move |(high_index, high_sod, high_bucket_size)| {
+        high_indices.map(move |(high_index, high_sod, high_bucket_size, high_tws)| {
             (
                 high_index * low_bucket_size + low_index,
                 low_sod + high_sod,
                 low_bucket_size * high_bucket_size,
+                [
+                    low_tws[0],
+                    low_tws[1],
+                    low_tws[2],
+                    low_tws[3],
+                    low_tws[4],
+                    low_tws[5],
+                    low_tws[6],
+                    low_tws[7],
+                    low_tws[8],
+                    low_tws[9],
+                    low_tws[10],
+                    low_tws[11],
+                    low_tws[12],
+                    low_tws[13],
+                    low_tws[14],
+                    low_tws[15],
+                    low_tws[16],
+                    low_tws[17],
+                    low_tws[18],
+                    low_tws[19],
+                    low_tws[20],
+                    low_tws[21],
+                    low_tws[22],
+                    low_tws[23],
+                    low_tws[24],
+                    low_tws[25],
+                    low_tws[26],
+                    low_tws[27],
+                    low_tws[28],
+                    low_tws[29],
+                    low_tws[30],
+                    low_tws[31],
+                    high_tws[0],
+                    high_tws[1],
+                    high_tws[2],
+                    high_tws[3],
+                    high_tws[4],
+                    high_tws[5],
+                    high_tws[6],
+                    high_tws[7],
+                    high_tws[8],
+                    high_tws[9],
+                    high_tws[10],
+                    high_tws[11],
+                    high_tws[12],
+                    high_tws[13],
+                    high_tws[14],
+                    high_tws[15],
+                    high_tws[16],
+                    high_tws[17],
+                    high_tws[18],
+                    high_tws[19],
+                    high_tws[20],
+                    high_tws[21],
+                    high_tws[22],
+                    high_tws[23],
+                    high_tws[24],
+                    high_tws[25],
+                    high_tws[26],
+                    high_tws[27],
+                    high_tws[28],
+                    high_tws[29],
+                    high_tws[30],
+                    high_tws[31],
+                ],
             )
         })
     })
@@ -52,7 +118,7 @@ pub fn search32(
     feature: u128,
     tws: [u32; 16],
     radius: u32,
-) -> impl Iterator<Item = (u32, u32, u32)> {
+) -> impl Iterator<Item = (u32, u32, u32, [u32; 32])> {
     const NPAIRS: u32 = 16;
     // Get the mask for the substring couples.
     let mask = (1u128 << (bits * NPAIRS)) - 1;
@@ -67,7 +133,7 @@ pub fn search32(
         ],
         radius,
     );
-    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size)| {
+    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size, low_tws)| {
         let high_indices = search16(
             bits,
             substrings[1],
@@ -76,11 +142,45 @@ pub fn search32(
             ],
             radius - low_sod,
         );
-        high_indices.map(move |(high_index, high_sod, high_bucket_size)| {
+        high_indices.map(move |(high_index, high_sod, high_bucket_size, high_tws)| {
             (
                 high_index * low_bucket_size + low_index,
                 low_sod + high_sod,
                 low_bucket_size * high_bucket_size,
+                [
+                    low_tws[0],
+                    low_tws[1],
+                    low_tws[2],
+                    low_tws[3],
+                    low_tws[4],
+                    low_tws[5],
+                    low_tws[6],
+                    low_tws[7],
+                    low_tws[8],
+                    low_tws[9],
+                    low_tws[10],
+                    low_tws[11],
+                    low_tws[12],
+                    low_tws[13],
+                    low_tws[14],
+                    low_tws[15],
+                    high_tws[0],
+                    high_tws[1],
+                    high_tws[2],
+                    high_tws[3],
+                    high_tws[4],
+                    high_tws[5],
+                    high_tws[6],
+                    high_tws[7],
+                    high_tws[8],
+                    high_tws[9],
+                    high_tws[10],
+                    high_tws[11],
+                    high_tws[12],
+                    high_tws[13],
+                    high_tws[14],
+                    high_tws[15],
+                ],
             )
         })
     })
@@ -94,7 +194,7 @@ pub fn search16(
     feature: u128,
     tws: [u32; 8],
     radius: u32,
-) -> impl Iterator<Item = (u32, u32, u32)> {
+) -> impl Iterator<Item = (u32, u32, u32, [u32; 16])> {
     const NPAIRS: u32 = 8;
     // Get the mask for the substring couples.
     let mask = (1u128 << (bits * NPAIRS)) - 1;
@@ -107,18 +207,36 @@ pub fn search16(
         [tws[0], tws[1], tws[2], tws[3]],
         radius,
     );
-    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size)| {
+    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size, low_tws)| {
         let high_indices = search8(
             bits,
             substrings[1],
             [tws[4], tws[5], tws[6], tws[7]],
             radius - low_sod,
         );
-        high_indices.map(move |(high_index, high_sod, high_bucket_size)| {
+        high_indices.map(move |(high_index, high_sod, high_bucket_size, high_tws)| {
             (
                 high_index * low_bucket_size + low_index,
                 low_sod + high_sod,
                 low_bucket_size * high_bucket_size,
+                [
+                    low_tws[0],
+                    low_tws[1],
+                    low_tws[2],
+                    low_tws[3],
+                    low_tws[4],
+                    low_tws[5],
+                    low_tws[6],
+                    low_tws[7],
+                    high_tws[0],
+                    high_tws[1],
+                    high_tws[2],
+                    high_tws[3],
+                    high_tws[4],
+                    high_tws[5],
+                    high_tws[6],
+                    high_tws[7],
+                ],
             )
         })
     })
@@ -132,7 +250,7 @@ pub fn search8(
     feature: u128,
     tws: [u32; 4],
     radius: u32,
-) -> impl Iterator<Item = (u32, u32, u32)> {
+) -> impl Iterator<Item = (u32, u32, u32, [u32; 8])> {
     const NPAIRS: u32 = 4;
     // Get the mask for the substring couples.
     let mask = (1u128 << (bits * NPAIRS)) - 1;
@@ -140,13 +258,23 @@ pub fn search8(
     let substrings = [feature & mask, feature >> (NPAIRS * bits)];
 
     let low_indices = search4(bits, substrings[0], [tws[0], tws[1]], radius);
-    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size)| {
+    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size, low_tws)| {
         let high_indices = search4(bits, substrings[1], [tws[2], tws[3]], radius - low_sod);
-        high_indices.map(move |(high_index, high_sod, high_bucket_size)| {
+        high_indices.map(move |(high_index, high_sod, high_bucket_size, high_tws)| {
             (
                 high_index * low_bucket_size + low_index,
                 low_sod + high_sod,
                 low_bucket_size * high_bucket_size,
+                [
+                    low_tws[0],
+                    low_tws[1],
+                    low_tws[2],
+                    low_tws[3],
+                    high_tws[0],
+                    high_tws[1],
+                    high_tws[2],
+                    high_tws[3],
+                ],
             )
         })
     })
@@ -160,7 +288,7 @@ pub fn search4(
     feature: u128,
     tws: [u32; 2],
     radius: u32,
-) -> impl Iterator<Item = (u32, u32, u32)> {
+) -> impl Iterator<Item = (u32, u32, u32, [u32; 4])> {
     const NPAIRS: u32 = 2;
     // Get the mask for the substring couples.
     let mask = (1u128 << (bits * NPAIRS)) - 1;
@@ -168,13 +296,14 @@ pub fn search4(
     let substrings = [feature & mask, feature >> (NPAIRS * bits)];
 
     let low_indices = search2(bits, substrings[0], tws[0], radius);
-    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size)| {
+    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size, low_tws)| {
         let high_indices = search2(bits, substrings[1], tws[1], radius - low_sod);
-        high_indices.map(move |(high_index, high_sod, high_bucket_size)| {
+        high_indices.map(move |(high_index, high_sod, high_bucket_size, high_tws)| {
             (
                 high_index * low_bucket_size + low_index,
                 low_sod + high_sod,
                 low_bucket_size * high_bucket_size,
+                [low_tws[0], low_tws[1], high_tws[0], high_tws[1]],
             )
         })
     })
@@ -188,14 +317,17 @@ pub fn search2(
     feature: u128,
     tw: u32,
     radius: u32,
-) -> impl Iterator<Item = (u32, u32, u32)> {
+) -> impl Iterator<Item = (u32, u32, u32, [u32; 2])> {
     // Get the number of ones in the search word.
     let sw = feature.count_ones();
     // Get the number of ones in the left half.
     let sl = ((feature >> bits) & ((1u128 << bits) - 1)).count_ones();
 
+    let max = std::cmp::min(tw, bits);
+    let min = tw - max;
+
     let (indices, bucket_size) = search(bits, sl, sw, tw, radius);
-    indices.map(move |(index, sod)| (index, sod, bucket_size))
+    indices.map(move |(index, sod)| (index, sod, bucket_size, [index + min, tw - (index + min)]))
 }
 
 /// Iterator over the indices that fall within a radius of a number.

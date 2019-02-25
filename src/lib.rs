@@ -284,10 +284,10 @@
 //! substring also dont exceed the total `SOD` for all substrings in the level.
 
 pub mod indices;
-pub mod search;
+mod search;
 
 use indices::*;
-use search::*;
+pub use search::*;
 use std::iter::repeat;
 
 const HIGH: u32 = 0x8000_0000;

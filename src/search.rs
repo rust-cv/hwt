@@ -1,13 +1,13 @@
 use itertools::Itertools;
 
-/// Iterator over the indices that fall within a radius of a 2-bit number.
+/// Iterator over the indices that fall within a radius of a number.
 ///
-/// `bits` - The number of bits the that make up the bit substring `sl`
+/// - `bits` - The number of bits the that make up the bit substring `sl`
 ///     comes from.
-/// `sl` - The weight of the left half of the 2-bit search number.
-/// `sw` - The weight of the whole 2-bit search number.
-/// `tw` - The weight of the whole 2-bit target number.
-/// `radius` - The maximum possible distance of matches.
+/// - `sl` - The weight of the left half of the 2-bit search number.
+/// - `sw` - The weight of the whole 2-bit search number.
+/// - `tw` - The weight of the whole 2-bit target number.
+/// - `radius` - The maximum possible distance of matches.
 ///
 /// Returns the iterator over the indices and also the bucket size
 /// (`MIN - MAX`). The iterator always iterates over increasing `SOD`.
@@ -74,7 +74,7 @@ mod test {
 
     #[test]
     fn test_search() {
-        let (indices, size) = search(128, 3, 5, 4, 1);
+        let (indices, size) = search(64, 3, 5, 4, 1);
         assert_eq!(&indices.collect::<Vec<_>>(), &[(2, 1), (3, 1)]);
         assert_eq!(size, 5);
     }

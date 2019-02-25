@@ -1,5 +1,157 @@
 use itertools::Itertools;
 
+/// Searches the `64` substrings with width `bits` of a `feature`.
+///
+/// The target weights `tws` must be known as well.
+pub fn search64(
+    bits: u32,
+    feature: u128,
+    tws: [u32; 32],
+    radius: u32,
+) -> impl Iterator<Item = (u32, u32, u32)> {
+    const NPAIRS: u32 = 32;
+    // Get the mask for the substring couples.
+    let mask = (1u128 << (bits * NPAIRS)) - 1;
+    // Split the `feature` into an array of substrings.
+    let substrings = [feature & mask, feature >> (NPAIRS * bits)];
+
+    let low_indices = search32(
+        bits,
+        substrings[0],
+        [
+            tws[0], tws[1], tws[2], tws[3], tws[4], tws[5], tws[6], tws[7], tws[8], tws[9],
+            tws[10], tws[11], tws[12], tws[13], tws[14], tws[15],
+        ],
+        radius,
+    );
+    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size)| {
+        let high_indices = search32(
+            bits,
+            substrings[1],
+            [
+                tws[16], tws[17], tws[18], tws[19], tws[20], tws[21], tws[22], tws[23], tws[24],
+                tws[25], tws[26], tws[27], tws[28], tws[29], tws[30], tws[31],
+            ],
+            radius - low_sod,
+        );
+        high_indices.map(move |(high_index, high_sod, high_bucket_size)| {
+            (
+                high_index * low_bucket_size + low_index,
+                low_sod + high_sod,
+                low_bucket_size * high_bucket_size,
+            )
+        })
+    })
+}
+
+/// Searches the `32` substrings with width `bits` of a `feature`.
+///
+/// The target weights `tws` must be known as well.
+pub fn search32(
+    bits: u32,
+    feature: u128,
+    tws: [u32; 16],
+    radius: u32,
+) -> impl Iterator<Item = (u32, u32, u32)> {
+    const NPAIRS: u32 = 16;
+    // Get the mask for the substring couples.
+    let mask = (1u128 << (bits * NPAIRS)) - 1;
+    // Split the `feature` into an array of substrings.
+    let substrings = [feature & mask, feature >> (NPAIRS * bits)];
+
+    let low_indices = search16(
+        bits,
+        substrings[0],
+        [
+            tws[0], tws[1], tws[2], tws[3], tws[4], tws[5], tws[6], tws[7],
+        ],
+        radius,
+    );
+    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size)| {
+        let high_indices = search16(
+            bits,
+            substrings[1],
+            [
+                tws[8], tws[9], tws[10], tws[11], tws[12], tws[13], tws[14], tws[15],
+            ],
+            radius - low_sod,
+        );
+        high_indices.map(move |(high_index, high_sod, high_bucket_size)| {
+            (
+                high_index * low_bucket_size + low_index,
+                low_sod + high_sod,
+                low_bucket_size * high_bucket_size,
+            )
+        })
+    })
+}
+
+/// Searches the `16` substrings with width `bits` of a `feature`.
+///
+/// The target weights `tws` must be known as well.
+pub fn search16(
+    bits: u32,
+    feature: u128,
+    tws: [u32; 8],
+    radius: u32,
+) -> impl Iterator<Item = (u32, u32, u32)> {
+    const NPAIRS: u32 = 8;
+    // Get the mask for the substring couples.
+    let mask = (1u128 << (bits * NPAIRS)) - 1;
+    // Split the `feature` into an array of substrings.
+    let substrings = [feature & mask, feature >> (NPAIRS * bits)];
+
+    let low_indices = search8(
+        bits,
+        substrings[0],
+        [tws[0], tws[1], tws[2], tws[3]],
+        radius,
+    );
+    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size)| {
+        let high_indices = search8(
+            bits,
+            substrings[1],
+            [tws[4], tws[5], tws[6], tws[7]],
+            radius - low_sod,
+        );
+        high_indices.map(move |(high_index, high_sod, high_bucket_size)| {
+            (
+                high_index * low_bucket_size + low_index,
+                low_sod + high_sod,
+                low_bucket_size * high_bucket_size,
+            )
+        })
+    })
+}
+
+/// Searches the eight substrings with width `bits` of a `feature`.
+///
+/// The target weights `tws` must be known as well.
+pub fn search8(
+    bits: u32,
+    feature: u128,
+    tws: [u32; 4],
+    radius: u32,
+) -> impl Iterator<Item = (u32, u32, u32)> {
+    const NPAIRS: u32 = 4;
+    // Get the mask for the substring couples.
+    let mask = (1u128 << (bits * NPAIRS)) - 1;
+    // Split the `feature` into an array of substrings.
+    let substrings = [feature & mask, feature >> (NPAIRS * bits)];
+
+    let low_indices = search4(bits, substrings[0], [tws[0], tws[1]], radius);
+    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size)| {
+        let high_indices = search4(bits, substrings[1], [tws[2], tws[3]], radius - low_sod);
+        high_indices.map(move |(high_index, high_sod, high_bucket_size)| {
+            (
+                high_index * low_bucket_size + low_index,
+                low_sod + high_sod,
+                low_bucket_size * high_bucket_size,
+            )
+        })
+    })
+}
+
 /// Searches the four substrings with width `bits` of a `feature`.
 ///
 /// The target weights `tws` must be known as well.

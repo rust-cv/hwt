@@ -25,8 +25,6 @@ pub fn search(
     let max = std::cmp::min(tw, bits);
     let min = tw - max;
 
-    let tl_filter = move |&tl: &i32| tl >= min as i32 && tl <= max as i32;
-
     // We do a lot of signed operations and sometimes compute negative numbers.
     // It is easier to change these to `i32` now.
     let sl = sl as i32;
@@ -37,34 +35,43 @@ pub fn search(
     // See crate documentation on what `C` is.
     let c = 2 * sl - sw + tw;
 
-    let down_map = move |tl| (tl, -2 * tl + c);
-    let flat_map = move |tl| (tl, -sw + tw);
-    let up_map = move |tl| (tl, 2 * tl - c);
+    let filter = move |&tl: &i32| tl >= min as i32 && tl <= max as i32;
 
-    let min_map = move |(tl, sod)| (tl as u32 - min, sod as u32);
+    let map = move |tl: i32| {
+        (
+            tl as u32,
+            ((tl - sl).abs() + ((tw - tl) - (sw - sl)).abs()) as u32,
+        )
+    };
 
     // Check if we intersect.
     if ((radius + c) / 2 - sl).abs() + (tw - (radius + c) / 2 - sw + sl).abs() <= radius {
         // We do, so run the ranges.
-        let start = (-radius + c) / 2;
+        let start = (-radius + c + 1) / 2;
         let inflection1 = sl;
         let inflection2 = sl - sw + tw;
         let end = (radius + c) / 2;
-        let down = (start..inflection1).filter(tl_filter).map(down_map);
-        let flat = (inflection1..=inflection2).filter(tl_filter).map(flat_map);
-        let up = (inflection2 + 1..=end).filter(tl_filter).map(up_map);
+        let down = start..inflection1;
+        let flat = inflection1..=inflection2;
+        let up = inflection2 + 1..=end;
 
         // We interleave `down` and `up` so that the resulting iterator always
         // goes in increasing `SOD` order. `flat` is always the best matches.
-        (flat.chain(down.interleave(up)).map(min_map), max - min + 1)
+        (
+            flat.chain(down.interleave(up)).filter(filter).map(map),
+            max - min + 1,
+        )
     } else {
         // Create fake iterators to satisfy the type system.
-        let down = (0..0).filter(tl_filter).map(down_map);
-        let flat = (0..=-1).filter(tl_filter).map(flat_map);
-        let up = (0..=-1).filter(tl_filter).map(up_map);
+        let down = 0..0;
+        let flat = 0..=-1;
+        let up = 0..=-1;
 
         // Also perform the same operations over here.
-        (flat.chain(down.interleave(up)).map(min_map), max - min + 1)
+        (
+            flat.chain(down.interleave(up)).filter(filter).map(map),
+            max - min + 1,
+        )
     }
 }
 
@@ -72,14 +79,52 @@ pub fn search(
 mod test {
     use super::*;
 
+    fn search_sort(bits: u32, sl: u32, sw: u32, tw: u32, radius: u32) -> (Vec<(u32, u32)>, u32) {
+        let indices_sorter = |a: &(u32, u32), b: &(u32, u32)| a.0.cmp(&b.0);
+        let (indices, size) = search(bits, sl, sw, tw, radius);
+        let mut indices = indices.collect::<Vec<_>>();
+        indices.sort_unstable_by(indices_sorter);
+        (indices, size)
+    }
+
     #[test]
     fn test_search() {
-        let (indices, size) = search(64, 3, 5, 4, 1);
-        assert_eq!(&indices.collect::<Vec<_>>(), &[(2, 1), (3, 1)]);
+        let (indices, size) = search_sort(64, 3, 5, 4, 1);
+        assert_eq!(&indices, &[(2, 1), (3, 1)]);
         assert_eq!(size, 5);
 
-        let (indices, size) = search(64, 58, 66, 40, 1);
-        assert_eq!(&indices.collect::<Vec<_>>(), &[]);
+        let (indices, size) = search_sort(64, 58, 66, 40, 1);
+        assert_eq!(&indices, &[]);
         assert_eq!(size, 41);
+
+        // [58, 8] ([sl, sr])
+        let (indices, size) = search_sort(64, 58, 66, 66, 1);
+        assert_eq!(&indices, &[(58, 0)]);
+        assert_eq!(size, 63);
+
+        // [58, 8] ([sl, sr])
+        let (indices, size) = search_sort(64, 58, 66, 66, 5);
+        assert_eq!(&indices, &[(56, 4), (57, 2), (58, 0), (59, 2), (60, 4)]);
+        assert_eq!(size, 63);
+
+        // [58, 14] ([sl, sr])
+        let (indices, size) = search_sort(64, 58, 72, 68, 10);
+        assert_eq!(
+            &indices,
+            &[
+                (51, 10),
+                (52, 8),
+                (53, 6),
+                (54, 4),
+                (55, 4),
+                (56, 4),
+                (57, 4),
+                (58, 4),
+                (59, 6),
+                (60, 8),
+                (61, 10)
+            ]
+        );
+        assert_eq!(size, 61);
     }
 }

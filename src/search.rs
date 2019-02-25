@@ -1,4 +1,52 @@
+use arraymap::ArrayMap;
 use itertools::Itertools;
+
+/// Searches the four substrings with `bits` bits of a `feature`.
+///
+/// The target weights `tws` must be known as well.
+pub fn search4(
+    bits: u32,
+    feature: u128,
+    tws: [u32; 2],
+    radius: u32,
+) -> impl Iterator<Item = (u32, u32, u32)> {
+    // Get the mask for the substring couples.
+    let couple_mask = (1u128 << (bits * 2)) - 1;
+    // Substring indices to let us use `ArrayMap`.
+    let substring_indices = [0, 1];
+    // Split the `feature` into an array of substrings.
+    let substrings = substring_indices.map(|n| (feature >> (n * bits)) & couple_mask);
+
+    let low_indices = search2(bits, substrings[0], tws[0], radius);
+    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size)| {
+        let high_indices = search2(bits, substrings[1], tws[1], radius - low_sod);
+        high_indices.map(move |(high_index, high_sod, high_bucket_size)| {
+            (
+                high_index * low_bucket_size + low_index,
+                low_sod + high_sod,
+                low_bucket_size * high_bucket_size,
+            )
+        })
+    })
+}
+
+/// Searches the two substrings with `bits` bits of a `feature`.
+///
+/// The target weight `tw` must be known as well.
+pub fn search2(
+    bits: u32,
+    feature: u128,
+    tw: u32,
+    radius: u32,
+) -> impl Iterator<Item = (u32, u32, u32)> {
+    // Get the number of ones in the search word.
+    let sw = feature.count_ones();
+    // Get the number of ones in the left half.
+    let sl = ((feature >> bits) & ((1u128 << bits) - 1)).count_ones();
+
+    let (indices, bucket_size) = search(bits, sl, sw, tw, radius);
+    indices.map(move |(index, sod)| (index, sod, bucket_size))
+}
 
 /// Iterator over the indices that fall within a radius of a number.
 ///

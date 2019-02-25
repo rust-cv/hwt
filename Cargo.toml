@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 itertools = "0.8.0"
+arraymap = "0.1.1"
 
 [dev-dependencies]
 criterion = "0.2.10"

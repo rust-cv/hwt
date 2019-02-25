@@ -129,5 +129,64 @@ mod test {
             ]
         );
         assert_eq!(size, 61);
+
+        // [58, 14] ([sl, sr])
+        let (indices, size) = search_sort(64, 58, 72, 75, 10);
+        assert_eq!(
+            &indices,
+            &[
+                (55, 9),
+                (56, 7),
+                (57, 5),
+                (58, 3),
+                (59, 3),
+                (60, 3),
+                (61, 3),
+                (62, 5),
+                (63, 7),
+                (64, 9)
+            ]
+        );
+        assert_eq!(size, 54);
+
+        // [58, 14] ([sl, sr])
+        let (indices, size) = search_sort(64, 58, 72, 76, 10);
+        assert_eq!(
+            &indices,
+            &[
+                (55, 10),
+                (56, 8),
+                (57, 6),
+                (58, 4),
+                (59, 4),
+                (60, 4),
+                (61, 4),
+                (62, 4),
+                (63, 6),
+                (64, 8)
+            ]
+        );
+        assert_eq!(size, 53);
+
+        // [58, 14] ([sl, sr])
+        let (indices, size) = search_sort(64, 58, 72, 82, 10);
+        assert_eq!(
+            &indices,
+            &[
+                (58, 10),
+                (59, 10),
+                (60, 10),
+                (61, 10),
+                (62, 10),
+                (63, 10),
+                (64, 10)
+            ]
+        );
+        assert_eq!(size, 47);
+
+        // [58, 14] ([sl, sr])
+        let (indices, size) = search_sort(64, 58, 72, 83, 10);
+        assert_eq!(&indices, &[]);
+        assert_eq!(size, 46);
     }
 }

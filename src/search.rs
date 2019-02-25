@@ -50,10 +50,13 @@ pub fn search(
         let start = (-radius + c + 1) / 2;
         let inflection1 = sl;
         let inflection2 = sl - sw + tw;
+        let min_inflection = std::cmp::min(inflection1, inflection2);
+        let max_inflection = std::cmp::max(inflection1, inflection2);
         let end = (radius + c) / 2;
-        let down = start..inflection1;
-        let flat = inflection1..=inflection2;
-        let up = inflection2 + 1..=end;
+
+        let down = start..min_inflection;
+        let flat = min_inflection..=max_inflection;
+        let up = max_inflection + 1..=end;
 
         // We interleave `down` and `up` so that the resulting iterator always
         // goes in increasing `SOD` order. `flat` is always the best matches.

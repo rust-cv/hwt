@@ -643,7 +643,7 @@ impl Hwt {
             search64(NBITS, feature, tws, radius).map(|(index, _, _, tws)| (index, tws)),
             // We just outright lie about the type there because otherwise
             // it can't infer the type.
-            |_, _, _, _, _, _| -> std::iter::Cloned<std::slice::Iter<'static, u32>> {
+            |_, _, _, _, _, _| -> Box<dyn Iterator<Item = u32> + 'a> {
                 panic!(
                     "hwt::Hwt::neighbors64(): it is an error to find an internal node this far down in the tree"
                 )
@@ -662,13 +662,13 @@ impl Hwt {
         lookup: &'a F,
         indices: impl Iterator<Item = (u32, TWS)> + 'a,
         subtable: impl Fn(&'a Self, u32, u128, usize, TWS, &'a F) -> I + 'a,
-    ) -> impl Iterator<Item = u32> + 'a
+    ) -> Box<dyn Iterator<Item = u32> + 'a>
     where
         F: Fn(u32) -> u128,
         I: Iterator<Item = u32>,
         TWS: Clone,
     {
-        indices.flat_map(move |(index, tws)| {
+        Box::new(indices.flat_map(move |(index, tws)| {
             match self.internals[bucket + index as usize] {
                 // Empty
                 0 => either::Left(None.into_iter()),
@@ -687,7 +687,7 @@ impl Hwt {
                     subtable(self, radius, feature, bucket, tws, lookup)
                 }),
             }
-        })
+        })) as Box<dyn Iterator<Item = u32> + 'a>
     }
 }
 

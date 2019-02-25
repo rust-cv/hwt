@@ -495,7 +495,8 @@ impl Hwt {
         )
     }
 
-    /// Find all neighbors within a given radius.
+    /// Find all neighbors in a bucket at depth `0` of the tree
+    /// (`-1` is the root) with a hamming distance less or equal to `radius`.
     fn neighbors2<'a, F: 'a>(
         &'a self,
         radius: u32,

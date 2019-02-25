@@ -516,6 +516,31 @@ impl Hwt {
             bucket,
             lookup,
             search2(NBITS, feature, tws[0], radius).map(|(index, _, _, tws)| (index, tws)),
+            Self::neighbors4,
+        )
+    }
+
+    /// Find all neighbors in a bucket at depth `1` of the tree
+    /// (`-1` is the root) with a hamming distance less or equal to `radius`.
+    fn neighbors4<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        tws: [u32; 2],
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        // The number of bits per substring.
+        const NBITS: u32 = 128 / 4;
+        self.bucket_scan(
+            radius,
+            feature,
+            bucket,
+            lookup,
+            search4(NBITS, feature, tws, radius).map(|(index, _, _, tws)| (index, tws)),
             |_, _, _, _, _, _| [].iter().cloned(),
         )
     }

@@ -1,7 +1,6 @@
-use arraymap::ArrayMap;
 use itertools::Itertools;
 
-/// Searches the four substrings with `bits` bits of a `feature`.
+/// Searches the four substrings with width `bits` of a `feature`.
 ///
 /// The target weights `tws` must be known as well.
 pub fn search4(
@@ -10,12 +9,11 @@ pub fn search4(
     tws: [u32; 2],
     radius: u32,
 ) -> impl Iterator<Item = (u32, u32, u32)> {
+    const NPAIRS: u32 = 2;
     // Get the mask for the substring couples.
-    let couple_mask = (1u128 << (bits * 2)) - 1;
-    // Substring indices to let us use `ArrayMap`.
-    let substring_indices = [0, 1];
+    let mask = (1u128 << (bits * NPAIRS)) - 1;
     // Split the `feature` into an array of substrings.
-    let substrings = substring_indices.map(|n| (feature >> (n * bits)) & couple_mask);
+    let substrings = [feature & mask, feature >> (NPAIRS * bits)];
 
     let low_indices = search2(bits, substrings[0], tws[0], radius);
     low_indices.flat_map(move |(low_index, low_sod, low_bucket_size)| {

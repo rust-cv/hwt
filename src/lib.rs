@@ -541,7 +541,113 @@ impl Hwt {
             bucket,
             lookup,
             search4(NBITS, feature, tws, radius).map(|(index, _, _, tws)| (index, tws)),
-            |_, _, _, _, _, _| [].iter().cloned(),
+            Self::neighbors8,
+        )
+    }
+
+    /// Find all neighbors in a bucket at depth `2` of the tree
+    /// (`-1` is the root) with a hamming distance less or equal to `radius`.
+    fn neighbors8<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        tws: [u32; 4],
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        // The number of bits per substring.
+        const NBITS: u32 = 128 / 8;
+        self.bucket_scan(
+            radius,
+            feature,
+            bucket,
+            lookup,
+            search8(NBITS, feature, tws, radius).map(|(index, _, _, tws)| (index, tws)),
+            Self::neighbors16,
+        )
+    }
+
+    /// Find all neighbors in a bucket at depth `3` of the tree
+    /// (`-1` is the root) with a hamming distance less or equal to `radius`.
+    fn neighbors16<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        tws: [u32; 8],
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        // The number of bits per substring.
+        const NBITS: u32 = 128 / 16;
+        self.bucket_scan(
+            radius,
+            feature,
+            bucket,
+            lookup,
+            search16(NBITS, feature, tws, radius).map(|(index, _, _, tws)| (index, tws)),
+            Self::neighbors32,
+        )
+    }
+
+    /// Find all neighbors in a bucket at depth `4` of the tree
+    /// (`-1` is the root) with a hamming distance less or equal to `radius`.
+    fn neighbors32<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        tws: [u32; 16],
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        // The number of bits per substring.
+        const NBITS: u32 = 128 / 32;
+        self.bucket_scan(
+            radius,
+            feature,
+            bucket,
+            lookup,
+            search32(NBITS, feature, tws, radius).map(|(index, _, _, tws)| (index, tws)),
+            Self::neighbors64,
+        )
+    }
+
+    /// Find all neighbors in a bucket at depth `5` of the tree
+    /// (`-1` is the root) with a hamming distance less or equal to `radius`.
+    fn neighbors64<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        tws: [u32; 32],
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        // The number of bits per substring.
+        const NBITS: u32 = 128 / 64;
+        self.bucket_scan(
+            radius,
+            feature,
+            bucket,
+            lookup,
+            search64(NBITS, feature, tws, radius).map(|(index, _, _, tws)| (index, tws)),
+            // We just outright lie about the type there because otherwise
+            // it can't infer the type.
+            |_, _, _, _, _, _| -> std::iter::Cloned<std::slice::Iter<'static, u32>> {
+                panic!(
+                    "hwt::Hwt::neighbors64(): it is an error to find an internal node this far down in the tree"
+                )
+            },
         )
     }
 

@@ -273,10 +273,6 @@
 //! `SL..-SR + TW` (`SOD = -2SL + C`)
 //! `-SR + TW..=(radius + C) / 2` (`SOD = 2TL - C`)
 //!
-//! We can also simplify the test from before to just test the constant part.
-//!
-//! If `-2SL + C <= radius` then it intersects.
-//!
 //! At this point we can compute the `SOD` over all of our input indices. Now
 //! we iterate over all input indices specificed, compute their `SOD`, and then
 //! perform a search over subsequent substrings by passing them a `new_radius`

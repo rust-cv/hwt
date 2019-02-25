@@ -44,7 +44,7 @@ pub fn search(
     let min_map = move |(tl, sod)| (tl as u32 - min, sod as u32);
 
     // Check if we intersect.
-    if -2 * sl + c <= radius {
+    if ((radius + c) / 2 - sl).abs() + (tw - (radius + c) / 2 - sw + sl).abs() <= radius {
         // We do, so run the ranges.
         let start = (-radius + c) / 2;
         let inflection1 = sl;
@@ -60,8 +60,8 @@ pub fn search(
     } else {
         // Create fake iterators to satisfy the type system.
         let down = (0..0).filter(tl_filter).map(down_map);
-        let flat = (0..=0).filter(tl_filter).map(flat_map);
-        let up = (0..=0).filter(tl_filter).map(up_map);
+        let flat = (0..=-1).filter(tl_filter).map(flat_map);
+        let up = (0..=-1).filter(tl_filter).map(up_map);
 
         // Also perform the same operations over here.
         (flat.chain(down.interleave(up)).map(min_map), max - min + 1)
@@ -77,5 +77,9 @@ mod test {
         let (indices, size) = search(64, 3, 5, 4, 1);
         assert_eq!(&indices.collect::<Vec<_>>(), &[(2, 1), (3, 1)]);
         assert_eq!(size, 5);
+
+        let (indices, size) = search(64, 58, 66, 40, 1);
+        assert_eq!(&indices.collect::<Vec<_>>(), &[]);
+        assert_eq!(size, 41);
     }
 }

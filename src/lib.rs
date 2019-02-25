@@ -284,6 +284,7 @@ mod search;
 
 use indices::*;
 pub use search::*;
+use std::cmp::{max, min};
 use std::iter::repeat;
 
 const HIGH: u32 = 0x8000_0000;
@@ -466,13 +467,62 @@ impl Hwt {
         None
     }
 
-    // /// Find all neighbors within a given radius.
-    // pub fn neighbors<F>(&self, radius: u32, feature: u128, lookup: F) -> impl Iterator<Item = u32>
-    // where
-    //     F: FnMut(u32) -> u128,
-    // {
-    //     unimplemented!()
-    // }
+    /// Find all neighbors within a given radius.
+    pub fn neighbors<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        // Manually compute the range of `tw` for the root node.
+        let sw = feature.count_ones() as i32;
+        let start = max(0, sw - radius as i32) as u32;
+        let end = min(128, sw + radius as i32) as u32;
+        // Iterate over every tw in the root.
+        self.neighbors_scan(radius, feature, 0, lookup, start..=end, |_, _, _, _, _| {
+            [].iter().cloned()
+        })
+    }
+
+    /// Search the given `bucket` with the `indices` iterator, using `subtable`
+    /// to recursively iterate over buckets found inside this bucket.
+    fn neighbors_scan<'a, F: 'a, I: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        lookup: &'a F,
+        indices: impl Iterator<Item = u32> + 'a,
+        subtable: impl Fn(&'a Self, u32, u128, usize, &'a F) -> I + 'a,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+        I: Iterator<Item = u32>,
+    {
+        indices.flat_map(move |index| {
+            match self.internals[bucket + index as usize] {
+                // Empty
+                0 => either::Left(None.into_iter()),
+                // Leaf
+                leaf if leaf & HIGH != 0 => either::Left({
+                    let leaf = leaf & !HIGH;
+                    if (lookup(leaf) ^ feature).count_ones() <= radius {
+                        Some(leaf).into_iter()
+                    } else {
+                        None.into_iter()
+                    }
+                }),
+                // Internal
+                internal => either::Right({
+                    let bucket = self.internal_indices[internal as usize];
+                    subtable(self, radius, feature, bucket, lookup)
+                }),
+            }
+        })
+    }
 }
 
 impl Default for Hwt {

@@ -483,13 +483,38 @@ impl Hwt {
         let start = max(0, sw - radius as i32) as u32;
         let end = min(128, sw + radius as i32) as u32;
         // Iterate over every applicable index in the root.
-        self.neighbors_scan(
+        self.bucket_scan(
             radius,
             feature,
             0,
-            &(),
             lookup,
-            start..=end,
+            // The index is the `tw` because at the root node indices
+            // are target weights.
+            (start..=end).map(|tw| (tw, [tw])),
+            Self::neighbors2,
+        )
+    }
+
+    /// Find all neighbors within a given radius.
+    fn neighbors2<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        tws: [u32; 1],
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        // The number of bits per substring.
+        const NBITS: u32 = 128 / 2;
+        self.bucket_scan(
+            radius,
+            feature,
+            bucket,
+            lookup,
+            search2(NBITS, feature, tws[0], radius).map(|(index, _, _, tws)| (index, tws)),
             |_, _, _, _, _, _| [].iter().cloned(),
         )
     }
@@ -497,21 +522,21 @@ impl Hwt {
     /// Search the given `bucket` with the `indices` iterator, using `subtable`
     /// to recursively iterate over buckets found inside this bucket.
     #[allow(clippy::too_many_arguments)]
-    fn neighbors_scan<'a, F: 'a, I: 'a, TWS: 'a>(
+    fn bucket_scan<'a, F: 'a, I: 'a, TWS: 'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
-        tws: &'a TWS,
         lookup: &'a F,
-        indices: impl Iterator<Item = u32> + 'a,
-        subtable: impl Fn(&'a Self, u32, u128, usize, &'a TWS, &'a F) -> I + 'a,
+        indices: impl Iterator<Item = (u32, TWS)> + 'a,
+        subtable: impl Fn(&'a Self, u32, u128, usize, TWS, &'a F) -> I + 'a,
     ) -> impl Iterator<Item = u32> + 'a
     where
         F: Fn(u32) -> u128,
         I: Iterator<Item = u32>,
+        TWS: Clone,
     {
-        indices.flat_map(move |index| {
+        indices.flat_map(move |(index, tws)| {
             match self.internals[bucket + index as usize] {
                 // Empty
                 0 => either::Left(None.into_iter()),

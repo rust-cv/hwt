@@ -668,7 +668,7 @@ impl Hwt {
             // it can't infer the type.
             |_, _, _, _, _, _| -> Box<dyn Iterator<Item = u32> + 'a> {
                 panic!(
-                    "hwt::Hwt::neighbors64(): it is an error to find an internal node this far down in the tree"
+                    "hwt::Hwt::neighbors128(): it is an error to find an internal node this far down in the tree"
                 )
             },
         )

@@ -647,10 +647,6 @@ impl Hwt {
 
     /// Find all neighbors in a bucket at depth `6` of the tree
     /// (`-1` is the root) with a hamming distance less or equal to `radius`.
-    ///
-    /// At this point we are just searching the whole bucket for matches
-    /// because that is certainly faster. This implementation doesn't do as
-    /// the paper says and compute a tradeoff point.
     fn neighbors128<'a, F: 'a>(
         &'a self,
         radius: u32,
@@ -667,7 +663,7 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            (0..compute_bucket_len(tws)).map(|n| (n, ())),
+            search128(feature, tws, radius).map(|index| (index, ())),
             // We just outright lie about the type there because otherwise
             // it can't infer the type.
             |_, _, _, _, _, _| -> Box<dyn Iterator<Item = u32> + 'a> {

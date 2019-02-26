@@ -8,6 +8,45 @@ pub fn compute_bucket_len(tws: [u32; 64]) -> u32 {
     1 << total_diffs
 }
 
+/// Searches the `128` substrings of a `feature`.
+///
+/// Bits is assumed to be `1`.
+///
+/// The target weights `tws` must be known as well.
+pub fn search128(feature: u128, tws: [u32; 64], radius: u32) -> impl Iterator<Item = u32> {
+    const NPAIRS: u32 = 64;
+    // Get the mask for the substring couples.
+    let mask = (1u128 << NPAIRS) - 1;
+    // Split the `feature` into an array of substrings.
+    let substrings = [feature & mask, feature >> NPAIRS];
+
+    let low_indices = search64(
+        1,
+        substrings[0],
+        [
+            tws[0], tws[1], tws[2], tws[3], tws[4], tws[5], tws[6], tws[7], tws[8], tws[9],
+            tws[10], tws[11], tws[12], tws[13], tws[14], tws[15], tws[16], tws[17], tws[18],
+            tws[19], tws[20], tws[21], tws[22], tws[23], tws[24], tws[25], tws[26], tws[27],
+            tws[28], tws[29], tws[30], tws[31],
+        ],
+        radius,
+    );
+    low_indices.flat_map(move |(low_index, low_sod, low_bucket_size, _)| {
+        let high_indices = search64(
+            1,
+            substrings[1],
+            [
+                tws[32], tws[33], tws[34], tws[35], tws[36], tws[37], tws[38], tws[39], tws[40],
+                tws[41], tws[42], tws[43], tws[44], tws[45], tws[46], tws[47], tws[48], tws[49],
+                tws[50], tws[51], tws[52], tws[53], tws[54], tws[55], tws[56], tws[57], tws[58],
+                tws[59], tws[60], tws[61], tws[62], tws[63],
+            ],
+            radius - low_sod,
+        );
+        high_indices.map(move |(high_index, _, _, _)| high_index * low_bucket_size + low_index)
+    })
+}
+
 /// Searches the `64` substrings with width `bits` of a `feature`.
 ///
 /// The target weights `tws` must be known as well.

@@ -1,5 +1,13 @@
 use itertools::Itertools;
 
+/// Compute the bucket size for an array of `64` `tws` from `search64`.
+pub fn compute_bucket_len(tws: [u32; 64]) -> u32 {
+    let total_diffs: u32 = tws.iter().map(|&tw| (tw & 1) ^ (tw >> 1)).sum();
+    // If its greater than 32 then we probably allocated a way too huge bucket.
+    assert!(total_diffs < 32);
+    1 << total_diffs
+}
+
 /// Searches the `64` substrings with width `bits` of a `feature`.
 ///
 /// The target weights `tws` must be known as well.

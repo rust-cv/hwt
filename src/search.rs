@@ -327,7 +327,7 @@ pub fn search2(
     let min = tw - max;
 
     let (indices, bucket_size) = search(bits, sl, sw, tw, radius);
-    indices.map(move |(index, sod)| (index, sod, bucket_size, [index + min, tw - (index + min)]))
+    indices.map(move |(index, sod)| (index, sod, bucket_size, [tw - (index + min), index + min]))
 }
 
 /// Iterator over the indices that fall within a radius of a number.
@@ -518,5 +518,10 @@ mod test {
         let (indices, size) = search_sort(64, 58, 72, 83, 10);
         assert_eq!(&indices, &[]);
         assert_eq!(size, 46);
+
+        // [0, 2] ([sl, sr])
+        let (indices, size) = search_sort(64, 0, 2, 2, 0);
+        assert_eq!(&indices, &[(0, 0)]);
+        assert_eq!(size, 3);
     }
 }

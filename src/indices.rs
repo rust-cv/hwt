@@ -1,6 +1,6 @@
 use std::cmp::min;
 
-/// Compute the indices for a 16-bit integer,
+/// Compute the indices for a 128-bit integer,
 /// along with the overall `MAX - MIN`.
 pub fn indices128(v: u128) -> ([usize; 7], [usize; 7]) {
     const NBITS: u32 = 128;
@@ -35,7 +35,7 @@ pub fn indices128(v: u128) -> ([usize; 7], [usize; 7]) {
     )
 }
 
-/// Compute the indices for a 16-bit integer,
+/// Compute the indices for a 32-bit integer,
 /// along with the overall `MAX - MIN`.
 pub fn indices64(v: u64) -> ([usize; 6], [usize; 6]) {
     const NBITS: u32 = 64;
@@ -68,7 +68,7 @@ pub fn indices64(v: u64) -> ([usize; 6], [usize; 6]) {
     )
 }
 
-/// Compute the indices for a 16-bit integer,
+/// Compute the indices for a 32-bit integer,
 /// along with the overall `MAX - MIN`.
 pub fn indices32(v: u32) -> ([usize; 5], [usize; 5]) {
     const NBITS: u32 = 32;

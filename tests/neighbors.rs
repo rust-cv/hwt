@@ -14,4 +14,20 @@ fn test_neighbors() {
         neighbors.sort_unstable();
         assert_eq!(&neighbors, &[ix as u32]);
     }
+
+    let mut neighbors = hwt.neighbors(1, 0b1000, &lookup).collect::<Vec<u32>>();
+    neighbors.sort_unstable();
+    assert_eq!(&neighbors, &[0, 1, 2, 3]);
+
+    let mut neighbors = hwt.neighbors(1, 0b1001, &lookup).collect::<Vec<u32>>();
+    neighbors.sort_unstable();
+    assert_eq!(&neighbors, &[0, 3]);
+
+    let mut neighbors = hwt.neighbors(1, 0b1010, &lookup).collect::<Vec<u32>>();
+    neighbors.sort_unstable();
+    assert_eq!(&neighbors, &[1, 3]);
+
+    let mut neighbors = hwt.neighbors(1, 0b1100, &lookup).collect::<Vec<u32>>();
+    neighbors.sort_unstable();
+    assert_eq!(&neighbors, &[2, 3]);
 }

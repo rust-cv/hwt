@@ -32,4 +32,13 @@ fn test_neighbors() {
     let mut neighbors = hwt.neighbors(1, 0b1100, &lookup).collect::<Vec<u32>>();
     neighbors.sort_unstable();
     assert_eq!(&neighbors, &[2, 3]);
+
+    let range = (0..).take(1 << 4);
+    let mut hwt = Hwt::new();
+    for i in range.clone() {
+        hwt.insert(u128::from(i), i, u128::from);
+    }
+    for feature in range.clone() {
+        assert!(hwt.neighbors(2, u128::from(feature), &u128::from).count() < 8128);
+    }
 }

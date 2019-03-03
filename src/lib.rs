@@ -490,7 +490,7 @@ impl Hwt {
             lookup,
             // The index is the `tw` because at the root node indices
             // are target weights.
-            (start..=end).map(|tw| (tw, [tw])),
+            (start..=end).map(|tw| (tw as usize, [tw])),
             Self::neighbors2,
         )
     }
@@ -666,9 +666,9 @@ impl Hwt {
             search128(feature, tws, radius).map(|index| (index, ())),
             // We just outright lie about the type there because otherwise
             // it can't infer the type.
-            |_, _, _, _, _, _| -> Box<dyn Iterator<Item = u32> + 'a> {
+            |_, _, _, bucket, _, _| -> Box<dyn Iterator<Item = u32> + 'a> {
                 panic!(
-                    "hwt::Hwt::neighbors128(): it is an error to find an internal node this far down in the tree"
+                    "hwt::Hwt::neighbors128(): it is an error to find an internal node this far down in the tree (bucket: {})", bucket, 
                 )
             },
         )
@@ -683,7 +683,7 @@ impl Hwt {
         feature: u128,
         bucket: usize,
         lookup: &'a F,
-        indices: impl Iterator<Item = (u32, TWS)> + 'a,
+        indices: impl Iterator<Item = (usize, TWS)> + 'a,
         subtable: impl Fn(&'a Self, u32, u128, usize, TWS, &'a F) -> I + 'a,
     ) -> Box<dyn Iterator<Item = u32> + 'a>
     where
@@ -692,7 +692,7 @@ impl Hwt {
         TWS: Clone,
     {
         Box::new(indices.flat_map(move |(index, tws)| {
-            match self.internals[bucket + index as usize] {
+            match self.internals[bucket + index] {
                 // Empty
                 0 => either::Left(None.into_iter()),
                 // Leaf
@@ -706,8 +706,8 @@ impl Hwt {
                 }),
                 // Internal
                 internal => either::Right({
-                    let bucket = self.internal_indices[internal as usize];
-                    subtable(self, radius, feature, bucket, tws, lookup)
+                    let subbucket = self.internal_indices[internal as usize];
+                    subtable(self, radius, feature, subbucket, tws, lookup)
                 }),
             }
         })) as Box<dyn Iterator<Item = u32> + 'a>

@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 /// Compute the bucket size for an array of `64` `tws` from `search64`.
-pub fn compute_bucket_len(tws: [u32; 64]) -> u32 {
+pub fn compute_bucket_len(tws: [u32; 64]) -> usize {
     let total_diffs: u32 = tws.iter().map(|&tw| (tw & 1) ^ (tw >> 1)).sum();
     // If its greater than 32 then we probably allocated a way too huge bucket.
     assert!(total_diffs < 32);
@@ -13,7 +13,7 @@ pub fn compute_bucket_len(tws: [u32; 64]) -> u32 {
 /// Bits is assumed to be `1`.
 ///
 /// The target weights `tws` must be known as well.
-pub fn search128(feature: u128, tws: [u32; 64], radius: u32) -> impl Iterator<Item = u32> {
+pub fn search128(feature: u128, tws: [u32; 64], radius: u32) -> impl Iterator<Item = usize> {
     const NPAIRS: u32 = 64;
     // Get the mask for the substring couples.
     let mask = (1u128 << NPAIRS) - 1;
@@ -55,7 +55,7 @@ pub fn search64(
     feature: u128,
     tws: [u32; 32],
     radius: u32,
-) -> impl Iterator<Item = (u32, u32, u32, [u32; 64])> {
+) -> impl Iterator<Item = (usize, u32, usize, [u32; 64])> {
     const NPAIRS: u32 = 32;
     // Get the mask for the substring couples.
     let mask = (1u128 << (bits * NPAIRS)) - 1;
@@ -165,7 +165,7 @@ pub fn search32(
     feature: u128,
     tws: [u32; 16],
     radius: u32,
-) -> impl Iterator<Item = (u32, u32, u32, [u32; 32])> {
+) -> impl Iterator<Item = (usize, u32, usize, [u32; 32])> {
     const NPAIRS: u32 = 16;
     // Get the mask for the substring couples.
     let mask = (1u128 << (bits * NPAIRS)) - 1;
@@ -241,7 +241,7 @@ pub fn search16(
     feature: u128,
     tws: [u32; 8],
     radius: u32,
-) -> impl Iterator<Item = (u32, u32, u32, [u32; 16])> {
+) -> impl Iterator<Item = (usize, u32, usize, [u32; 16])> {
     const NPAIRS: u32 = 8;
     // Get the mask for the substring couples.
     let mask = (1u128 << (bits * NPAIRS)) - 1;
@@ -297,7 +297,7 @@ pub fn search8(
     feature: u128,
     tws: [u32; 4],
     radius: u32,
-) -> impl Iterator<Item = (u32, u32, u32, [u32; 8])> {
+) -> impl Iterator<Item = (usize, u32, usize, [u32; 8])> {
     const NPAIRS: u32 = 4;
     // Get the mask for the substring couples.
     let mask = (1u128 << (bits * NPAIRS)) - 1;
@@ -335,7 +335,7 @@ pub fn search4(
     feature: u128,
     tws: [u32; 2],
     radius: u32,
-) -> impl Iterator<Item = (u32, u32, u32, [u32; 4])> {
+) -> impl Iterator<Item = (usize, u32, usize, [u32; 4])> {
     const NPAIRS: u32 = 2;
     // Get the mask for the substring couples.
     let mask = (1u128 << (bits * NPAIRS)) - 1;
@@ -364,7 +364,7 @@ pub fn search2(
     feature: u128,
     tw: u32,
     radius: u32,
-) -> impl Iterator<Item = (u32, u32, u32, [u32; 2])> {
+) -> impl Iterator<Item = (usize, u32, usize, [u32; 2])> {
     // Get the number of ones in the search word.
     let sw = feature.count_ones();
     // Get the number of ones in the left half.
@@ -374,7 +374,14 @@ pub fn search2(
     let min = tw - max;
 
     let (indices, bucket_size) = search(bits, sl, sw, tw, radius);
-    indices.map(move |(index, sod)| (index, sod, bucket_size, [tw - (index + min), index + min]))
+    indices.map(move |(index, sod)| {
+        (
+            index as usize,
+            sod,
+            bucket_size as usize,
+            [tw - (index + min), index + min],
+        )
+    })
 }
 
 /// Iterator over the indices that fall within a radius of a number.

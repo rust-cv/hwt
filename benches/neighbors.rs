@@ -10,17 +10,17 @@ fn bench_neighbors(c: &mut Criterion) {
             for i in range.clone() {
                 hwt.insert(u128::from(i), i, u128::from);
             }
+            let mut cycle_range = range.cycle();
             bencher.iter(|| {
-                for feature in range.clone() {
-                    assert!(hwt.neighbors(2, u128::from(feature), &u128::from).count() < 8128);
-                }
+                let feature = cycle_range.next().unwrap();
+                assert!(hwt.neighbors(2, u128::from(feature), &u128::from).count() < 8128);
             });
         }),
     );
 }
 
 fn config() -> Criterion {
-    Criterion::default().sample_size(32).nresamples(5)
+    Criterion::default()
 }
 
 criterion_group! {

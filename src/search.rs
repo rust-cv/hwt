@@ -423,7 +423,7 @@ pub fn search(
 
     let map = move |tl: i32| {
         (
-            tl as u32,
+            tl as u32 - min,
             ((tl - sl).abs() + ((tw - tl) - (sw - sl)).abs()) as u32,
         )
     };
@@ -475,7 +475,7 @@ mod test {
     }
 
     #[test]
-    fn test_search() {
+    fn test_search_base() {
         let (indices, size) = search_sort(64, 3, 5, 4, 1);
         assert_eq!(&indices, &[(2, 1), (3, 1)]);
         assert_eq!(size, 5);
@@ -486,12 +486,12 @@ mod test {
 
         // [58, 8] ([sl, sr])
         let (indices, size) = search_sort(64, 58, 66, 66, 1);
-        assert_eq!(&indices, &[(58, 0)]);
+        assert_eq!(&indices, &[(56, 0)]);
         assert_eq!(size, 63);
 
         // [58, 8] ([sl, sr])
         let (indices, size) = search_sort(64, 58, 66, 66, 5);
-        assert_eq!(&indices, &[(56, 4), (57, 2), (58, 0), (59, 2), (60, 4)]);
+        assert_eq!(&indices, &[(54, 4), (55, 2), (56, 0), (57, 2), (58, 4)]);
         assert_eq!(size, 63);
 
         // [58, 14] ([sl, sr])
@@ -499,17 +499,17 @@ mod test {
         assert_eq!(
             &indices,
             &[
-                (51, 10),
-                (52, 8),
-                (53, 6),
+                (47, 10),
+                (48, 8),
+                (49, 6),
+                (50, 4),
+                (51, 4),
+                (52, 4),
+                (53, 4),
                 (54, 4),
-                (55, 4),
-                (56, 4),
-                (57, 4),
-                (58, 4),
-                (59, 6),
-                (60, 8),
-                (61, 10)
+                (55, 6),
+                (56, 8),
+                (57, 10)
             ]
         );
         assert_eq!(size, 61);
@@ -519,16 +519,16 @@ mod test {
         assert_eq!(
             &indices,
             &[
-                (55, 9),
-                (56, 7),
-                (57, 5),
-                (58, 3),
-                (59, 3),
-                (60, 3),
-                (61, 3),
-                (62, 5),
-                (63, 7),
-                (64, 9)
+                (44, 9),
+                (45, 7),
+                (46, 5),
+                (47, 3),
+                (48, 3),
+                (49, 3),
+                (50, 3),
+                (51, 5),
+                (52, 7),
+                (53, 9)
             ]
         );
         assert_eq!(size, 54);
@@ -538,16 +538,16 @@ mod test {
         assert_eq!(
             &indices,
             &[
-                (55, 10),
-                (56, 8),
-                (57, 6),
-                (58, 4),
-                (59, 4),
-                (60, 4),
-                (61, 4),
-                (62, 4),
-                (63, 6),
-                (64, 8)
+                (43, 10),
+                (44, 8),
+                (45, 6),
+                (46, 4),
+                (47, 4),
+                (48, 4),
+                (49, 4),
+                (50, 4),
+                (51, 6),
+                (52, 8)
             ]
         );
         assert_eq!(size, 53);
@@ -557,13 +557,13 @@ mod test {
         assert_eq!(
             &indices,
             &[
-                (58, 10),
-                (59, 10),
-                (60, 10),
-                (61, 10),
-                (62, 10),
-                (63, 10),
-                (64, 10)
+                (40, 10),
+                (41, 10),
+                (42, 10),
+                (43, 10),
+                (44, 10),
+                (45, 10),
+                (46, 10)
             ]
         );
         assert_eq!(size, 47);
@@ -577,6 +577,11 @@ mod test {
         let (indices, size) = search_sort(64, 0, 2, 2, 0);
         assert_eq!(&indices, &[(0, 0)]);
         assert_eq!(size, 3);
+
+        // [1, 1] ([sl, sr])
+        let (indices, size) = search_sort(1, 1, 2, 2, 1);
+        assert_eq!(&indices, &[(0, 0)]);
+        assert_eq!(size, 1);
     }
 
     fn search_sort2(
@@ -594,13 +599,25 @@ mod test {
 
     #[test]
     fn test_search2() {
+        // Test with 2 bits.
         let indices = search_sort2(2, 0b101, 2, 1);
         assert_eq!(&indices, &[(1, 0, 3, [1, 1])]);
+
         let indices = search_sort2(2, 0b101, 2, 2);
         assert_eq!(
             &indices,
             &[(0, 2, 3, [2, 0]), (1, 0, 3, [1, 1]), (2, 2, 3, [0, 2])]
         );
+
+        // Test with 1 bit.
+        let indices = search_sort2(1, 0b0, 1, 1);
+        assert_eq!(&indices, &[(0, 1, 2, [1, 0]), (1, 1, 2, [0, 1])]);
+
+        let indices = search_sort2(1, 0b11, 1, 1);
+        assert_eq!(&indices, &[(0, 1, 2, [1, 0]), (1, 1, 2, [0, 1])]);
+
+        let indices = search_sort2(1, 0b11, 2, 1);
+        assert_eq!(&indices, &[(0, 0, 1, [1, 1])]);
     }
 
     fn search_sort128(feature: u128, tws: [u32; 64], radius: u32) -> Vec<usize> {

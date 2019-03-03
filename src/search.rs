@@ -632,6 +632,6 @@ mod test {
         tws[0] = 1;
         tws[1] = 1;
         let indices = search_sort128(0b101, tws, 1);
-        assert_eq!(&indices, &[0, 1, 2]);
+        assert_eq!(&indices, &[0]);
     }
 }

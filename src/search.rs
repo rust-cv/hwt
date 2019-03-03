@@ -578,4 +578,43 @@ mod test {
         assert_eq!(&indices, &[(0, 0)]);
         assert_eq!(size, 3);
     }
+
+    fn search_sort2(
+        bits: u32,
+        feature: u128,
+        tw: u32,
+        radius: u32,
+    ) -> Vec<(usize, u32, usize, [u32; 2])> {
+        let indices_sorter =
+            |a: &(usize, u32, usize, [u32; 2]), b: &(usize, u32, usize, [u32; 2])| a.0.cmp(&b.0);
+        let mut indices = search2(bits, feature, tw, radius).collect::<Vec<_>>();
+        indices.sort_unstable_by(indices_sorter);
+        indices
+    }
+
+    #[test]
+    fn test_search2() {
+        let indices = search_sort2(2, 0b101, 2, 1);
+        assert_eq!(&indices, &[(1, 0, 3, [1, 1])]);
+        let indices = search_sort2(2, 0b101, 2, 2);
+        assert_eq!(
+            &indices,
+            &[(0, 2, 3, [2, 0]), (1, 0, 3, [1, 1]), (2, 2, 3, [0, 2])]
+        );
+    }
+
+    fn search_sort128(feature: u128, tws: [u32; 64], radius: u32) -> Vec<usize> {
+        let mut indices = search128(feature, tws, radius).collect::<Vec<_>>();
+        indices.sort_unstable();
+        indices
+    }
+
+    #[test]
+    fn test_search128() {
+        let mut tws = [0; 64];
+        tws[0] = 1;
+        tws[1] = 1;
+        let indices = search_sort128(0b101, tws, 1);
+        assert_eq!(&indices, &[0, 1, 2]);
+    }
 }

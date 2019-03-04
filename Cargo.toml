@@ -1,8 +1,13 @@
 [package]
 name = "hwt"
+description = "Hamming Weight Tree for finding neighbors in Hamming space"
 version = "0.1.0"
 authors = ["Geordon Worley <vadixidav@gmail.com>"]
 edition = "2018"
+license = "MIT"
+keywords = ["knn", "nearest", "neighbors", "binary", "hamming"]
+documentation = "https://docs.rs/hwt/"
+repository = "https://github.com/vadixidav/hwt"
 
 [dependencies]
 itertools = "0.8.0"

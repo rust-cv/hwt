@@ -467,8 +467,27 @@ impl Hwt {
         None
     }
 
+    /// Find the nearest neighbors to a feature. This will give the nearest
+    /// neighbors first and expand outwards. This evaluates lazily, so use
+    /// `Iterator::take()` to just take as many as you need.
+    pub fn nearest<'a, F: 'a>(
+        &'a self,
+        feature: u128,
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        (0..=128)
+            .map(move |r| {
+                self.search_radius(r, feature, lookup)
+                    .filter(move |&n| (lookup(n) ^ feature).count_ones() == r)
+            })
+            .flatten()
+    }
+
     /// Find all neighbors within a given radius.
-    pub fn neighbors<'a, F: 'a>(
+    pub fn search_radius<'a, F: 'a>(
         &'a self,
         radius: u32,
         feature: u128,

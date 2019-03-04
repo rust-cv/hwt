@@ -16,7 +16,7 @@ fn bench_neighbors(c: &mut Criterion) {
                 bencher.iter(|| {
                     let feature = cycle_range.next().unwrap();
                     assert_eq!(
-                        hwt.neighbors(2, u128::from(feature), &u128::from)
+                        hwt.nearest(u128::from(feature), &u128::from)
                             .take(100)
                             .count(),
                         100

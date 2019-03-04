@@ -4,7 +4,9 @@ use hwt::*;
 fn test_neighbors() {
     // That number triggers an overflow because the
     // bucket size is precisely as large as `usize`.
-    let features = [0b1001, 0b1010, 0b1100, 0b1000/*, 0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA*/];
+    let features = [
+        0b1001, 0b1010, 0b1100, 0b1000, /*, 0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA*/
+    ];
     let lookup = |n| features[n as usize];
     let mut hwt = Hwt::new();
     for (ix, &feature) in features.iter().enumerate() {
@@ -12,24 +14,24 @@ fn test_neighbors() {
     }
 
     for (ix, &feature) in features.iter().enumerate() {
-        let mut neighbors = hwt.neighbors(0, feature, &lookup).collect::<Vec<u32>>();
+        let mut neighbors = hwt.nearest(feature, &lookup).take(1).collect::<Vec<u32>>();
         neighbors.sort_unstable();
         assert_eq!(&neighbors, &[ix as u32]);
     }
 
-    let mut neighbors = hwt.neighbors(1, 0b1000, &lookup).collect::<Vec<u32>>();
+    let mut neighbors = hwt.search_radius(1, 0b1000, &lookup).collect::<Vec<u32>>();
     neighbors.sort_unstable();
     assert_eq!(&neighbors, &[0, 1, 2, 3]);
 
-    let mut neighbors = hwt.neighbors(1, 0b1001, &lookup).collect::<Vec<u32>>();
+    let mut neighbors = hwt.search_radius(1, 0b1001, &lookup).collect::<Vec<u32>>();
     neighbors.sort_unstable();
     assert_eq!(&neighbors, &[0, 3]);
 
-    let mut neighbors = hwt.neighbors(1, 0b1010, &lookup).collect::<Vec<u32>>();
+    let mut neighbors = hwt.search_radius(1, 0b1010, &lookup).collect::<Vec<u32>>();
     neighbors.sort_unstable();
     assert_eq!(&neighbors, &[1, 3]);
 
-    let mut neighbors = hwt.neighbors(1, 0b1100, &lookup).collect::<Vec<u32>>();
+    let mut neighbors = hwt.search_radius(1, 0b1100, &lookup).collect::<Vec<u32>>();
     neighbors.sort_unstable();
     assert_eq!(&neighbors, &[2, 3]);
 
@@ -39,6 +41,10 @@ fn test_neighbors() {
         hwt.insert(u128::from(i), i, u128::from);
     }
     for feature in range.clone() {
-        assert!(hwt.neighbors(2, u128::from(feature), &u128::from).count() < 8128);
+        assert!(
+            hwt.search_radius(2, u128::from(feature), &u128::from)
+                .count()
+                < 8128
+        );
     }
 }

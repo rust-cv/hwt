@@ -358,7 +358,7 @@ impl Hwt {
         assert_eq!(item & HIGH, 0);
         // Compute the indices of the buckets and the sizes of the buckets
         // for each layer of the tree.
-        let (indices, sizes) = indices128(feature);
+        let (indices, sizes, last_size) = indices128(feature);
         // The first index in the tree is actually the overall weight of
         // the whole number.
         let weight = feature.count_ones() as usize;
@@ -384,7 +384,7 @@ impl Hwt {
                     // Get the leaf's indices. The size of any table we care
                     // about is the same as this `item`.
                     let leaf_feature = lookup(leaf & !HIGH);
-                    let (leaf_indices, _) = indices128(leaf_feature);
+                    let (leaf_indices, _, _) = indices128(leaf_feature);
                     // Iterate and make more child nodes until the `item` and
                     // the leaf differ.
                     for i in i..7 {
@@ -395,7 +395,13 @@ impl Hwt {
                         // the max.
                         let location = self.internal_indices.len() as u32;
                         assert!(location & HIGH == 0);
-                        self.internals.extend(repeat(0).take(sizes[i]));
+                        if i == 6 {
+                            // This should be fixed eventually.
+                            assert!(last_size < std::usize::MAX as u128);
+                            self.internals.extend(repeat(0).take(last_size as usize));
+                        } else {
+                            self.internals.extend(repeat(0).take(sizes[i]));
+                        }
                         self.internal_indices.push(internal_location);
                         // Add the bucket to this parent node.
                         self.internals[node] = location;
@@ -450,7 +456,7 @@ impl Hwt {
     pub fn get(&mut self, feature: u128) -> Option<u32> {
         // Compute the indices of the buckets and the sizes of the buckets
         // for each layer of the tree.
-        let (indices, _) = indices128(feature);
+        let (indices, _, _) = indices128(feature);
         // The first index in the tree is actually the overall weight of
         // the whole number.
         let weight = feature.count_ones() as usize;

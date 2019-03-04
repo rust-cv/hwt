@@ -5,7 +5,11 @@ fn test_neighbors() {
     // That number triggers an overflow because the
     // bucket size is precisely as large as `usize`.
     let features = [
-        0b1001, 0b1010, 0b1100, 0b1000, /*, 0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA*/
+        0b1001,
+        0b1010,
+        0b1100,
+        0b1000,
+        0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA,
     ];
     let lookup = |n| features[n as usize];
     let mut hwt = Hwt::new();

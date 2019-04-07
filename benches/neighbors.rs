@@ -1,29 +1,44 @@
 use criterion::*;
 use hwt::*;
+use rand::rngs::SmallRng;
+use rand::{Rng, SeedableRng};
+use std::collections::HashMap;
+use std::iter::FromIterator;
 
 fn bench_neighbors(c: &mut Criterion) {
+    let all_sizes = (14..30).map(|n| 2usize.pow(n));
+    let mut rng = SmallRng::from_seed([5; 16]);
+    // Get the bigest input size and then generate all inputs from that.
+    let all_input = rng
+        .sample_iter(&rand::distributions::Standard)
+        .take(all_sizes.clone().rev().next().unwrap())
+        .collect::<Vec<u128>>();
+    let hwt_map = HashMap::<_, _>::from_iter(all_sizes.clone().map(|total| {
+        let range = (0..).take(total);
+        let mut hwt = Hwt::new();
+        for i in range.clone() {
+            hwt.insert(all_input[i], i as u32, |n| all_input[n as usize]);
+        }
+        (total, hwt)
+    }));
     c.bench(
         "neighbors",
         ParameterizedBenchmark::new(
             "search_radius_2_take_100",
-            |bencher: &mut Bencher, &total: &usize| {
-                let range = (0..).take(total);
-                let mut hwt = Hwt::new();
-                for i in range.clone() {
-                    hwt.insert(u128::from(i), i, u128::from);
-                }
-                let mut cycle_range = range.cycle();
+            move |bencher: &mut Bencher, total: &usize| {
+                let hwt = &hwt_map[total];
+                let mut cycle_range = (0..).take(*total).cycle();
                 bencher.iter(|| {
                     let feature = cycle_range.next().unwrap();
                     assert_eq!(
-                        hwt.nearest(u128::from(feature), &u128::from)
+                        hwt.nearest(all_input[feature], &|n| all_input[n as usize])
                             .take(100)
                             .count(),
                         100
                     );
                 });
             },
-            (14..30).map(|n| 2usize.pow(n)),
+            all_sizes,
         )
         .sample_size(30),
     );

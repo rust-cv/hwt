@@ -6,8 +6,8 @@ use std::collections::HashMap;
 use std::iter::FromIterator;
 
 fn bench_neighbors(c: &mut Criterion) {
-    let max_tree_magnitude = 26;
-    let all_sizes = (14..=max_tree_magnitude).map(|n| 2usize.pow(n));
+    let max_tree_magnitude = 29;
+    let all_sizes = (0..=max_tree_magnitude).map(|n| 2usize.pow(n));
     let mut rng = SmallRng::from_seed([5; 16]);
     // Get the bigest input size and then generate all inputs from that.
     eprintln!("Generating random inputs...");
@@ -30,7 +30,7 @@ fn bench_neighbors(c: &mut Criterion) {
     c.bench(
         "neighbors",
         ParameterizedBenchmark::new(
-            "search_radius_2_take_100",
+            "nearest_neighbor",
             move |bencher: &mut Bencher, total: &usize| {
                 let hwt = &hwt_map[total];
                 let mut cycle_range = (0..).take(*total).cycle();
@@ -38,9 +38,9 @@ fn bench_neighbors(c: &mut Criterion) {
                     let feature = cycle_range.next().unwrap();
                     assert_eq!(
                         hwt.nearest(all_input[feature], &|n| all_input[n as usize])
-                            .take(100)
+                            .take(1)
                             .count(),
-                        100
+                        1
                     );
                 });
             },

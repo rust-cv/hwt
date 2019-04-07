@@ -289,7 +289,11 @@ use std::cmp::{max, min};
 
 const HIGH: u32 = 0x8000_0000;
 
-type Internal = HashMap<usize, u32>;
+#[derive(Default)]
+struct Internal {
+    map: HashMap<usize, u32>,
+    count: usize,
+}
 
 pub struct Hwt {
     /// If a `u32` has a high bit set to `1` then it is a leaf node, otherwise it is an internal node.
@@ -297,7 +301,6 @@ pub struct Hwt {
     /// just a bump allocator for internal nodes. It is possible to have more than 2^31 entries, but
     /// 2^31 internal nodes cannot be exceeded.
     internals: Vec<Internal>,
-    count: usize,
 }
 
 impl Hwt {
@@ -321,7 +324,7 @@ impl Hwt {
     /// assert_eq!(hwt.len(), 1);
     /// ```
     pub fn len(&self) -> usize {
-        self.count
+        self.internals[0].count
     }
 
     /// Checks if the `Hwt` is empty.
@@ -334,7 +337,14 @@ impl Hwt {
     /// assert!(!hwt.is_empty());
     /// ```
     pub fn is_empty(&self) -> bool {
-        self.count == 0
+        self.len() == 0
+    }
+
+    /// Decreases the count of every node descending down to a particular index.
+    /// This should be used to undo the counting up if there is a duplicate insert
+    /// or when removing things from the Hwt.
+    fn remove_count(&mut self, indices: [usize; 7]) {
+        unimplemented!()
     }
 
     /// Inserts an item ID to the `Hwt`.
@@ -366,18 +376,22 @@ impl Hwt {
         let mut node = weight;
         let mut bucket = 0;
         for i in 0..7 {
-            match self.internals[bucket].entry(node) {
+            match self.internals[bucket].map.entry(node) {
                 Entry::Occupied(o) => {
                     let occupied_node = *o.get();
                     // If its an internal node.
                     if occupied_node & HIGH == 0 {
                         let internal = occupied_node;
+                        // Increase the bucket by 1 before we descend since we will be inserting a node.
+                        self.internals[bucket].count += 1;
                         // Go to the next node.
                         bucket = internal as usize;
                         node = indices[i];
                     } else {
                         // It is a leaf node.
                         let leaf = occupied_node;
+                        // Increase the internals by `1` before we go further.
+                        self.internals[bucket].count += 1;
                         // Get the leaf's indices. The size of any table we care
                         // about is the same as this `item`.
                         let leaf_feature = lookup(leaf & !HIGH);
@@ -392,9 +406,13 @@ impl Hwt {
                             // the max.
                             assert!(location & HIGH == 0);
                             // Create the new bucket.
-                            let mut new_bucket = HashMap::new();
+                            let mut new_bucket = Internal::default();
+                            // Set the new bucket to 2 since we are putting 2 nodes into it.
+                            new_bucket.count = 2;
                             // Add the bucket to this parent node.
-                            self.internals[bucket].insert(node, location);
+                            // We already accounted for the count change by assigning 2 to new buckets
+                            // and incrementing the first bucket's count by 1.
+                            self.internals[bucket].map.insert(node, location);
                             // Update the node to be this node.
                             bucket = location as usize;
                             node = indices[i];
@@ -402,9 +420,8 @@ impl Hwt {
                             if leaf_indices[i] != indices[i] {
                                 // If they finally differ, we can add them to
                                 // different spots and return.
-                                new_bucket.insert(leaf_indices[i], leaf);
-                                new_bucket.insert(indices[i], item | HIGH);
-                                self.count += 1;
+                                new_bucket.map.insert(leaf_indices[i], leaf);
+                                new_bucket.map.insert(indices[i], item | HIGH);
                                 // Push the new bucket before returning.
                                 self.internals.push(new_bucket);
                                 return None;
@@ -421,18 +438,22 @@ impl Hwt {
                 }
                 Entry::Vacant(v) => {
                     v.insert(item | HIGH);
-                    self.count += 1;
+                    // Increase the internals by `1`.
+                    self.internals[bucket].count += 1;
                     return None;
                 }
             }
         }
-        match self.internals[bucket].entry(node) {
+        match self.internals[bucket].map.entry(node) {
             // If it is occupied, then it can only be a leaf. We replace that leaf.
             Entry::Occupied(o) => Some(o.replace_entry(item | HIGH).1),
             // A vacant entry should be replaced.
             Entry::Vacant(v) => {
                 v.insert(item | HIGH);
-                self.count += 1;
+                dbg!("TODO: If a node is replaced, the tree count is now invalid.");
+                // Increase the internals by `1`.
+                self.internals[bucket].count += 1;
+                // TODO: Call remove_count() here after it works!
                 None
             }
         }
@@ -462,7 +483,7 @@ impl Hwt {
         let mut bucket = 0;
         let mut node = weight;
         for &index in &indices {
-            if let Some(&occupied_node) = self.internals[bucket].get(&node) {
+            if let Some(&occupied_node) = self.internals[bucket].map.get(&node) {
                 if occupied_node & HIGH == 0 {
                     // It is internal.
                     bucket = occupied_node as usize;
@@ -722,7 +743,7 @@ impl Hwt {
         TWS: Clone,
     {
         Box::new(indices.flat_map(move |(index, tws)| {
-            if let Some(&occupied_node) = self.internals[bucket].get(&index) {
+            if let Some(&occupied_node) = self.internals[bucket].map.get(&index) {
                 if occupied_node & HIGH != 0 {
                     // The node is a leaf.
                     let leaf = occupied_node & !HIGH;
@@ -750,8 +771,7 @@ impl Default for Hwt {
         // of bits and the minimum is 0, so this means that there are
         // `NBits + 1` child nodes.
         Self {
-            internals: vec![HashMap::new()],
-            count: 0,
+            internals: vec![Internal::default()],
         }
     }
 }

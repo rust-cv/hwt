@@ -6,14 +6,19 @@ use std::collections::HashMap;
 use std::iter::FromIterator;
 
 fn bench_neighbors(c: &mut Criterion) {
-    let all_sizes = (14..30).map(|n| 2usize.pow(n));
+    let max_tree_magnitude = 26;
+    let all_sizes = (14..=max_tree_magnitude).map(|n| 2usize.pow(n));
     let mut rng = SmallRng::from_seed([5; 16]);
     // Get the bigest input size and then generate all inputs from that.
+    eprintln!("Generating random inputs...");
     let all_input = rng
         .sample_iter(&rand::distributions::Standard)
         .take(all_sizes.clone().rev().next().unwrap())
         .collect::<Vec<u128>>();
+    eprintln!("Done.");
+    eprintln!("Generating Hamming Weight Trees...");
     let hwt_map = HashMap::<_, _>::from_iter(all_sizes.clone().map(|total| {
+        eprintln!("Generating tree size {}...", total);
         let range = (0..).take(total);
         let mut hwt = Hwt::new();
         for i in range.clone() {
@@ -21,6 +26,7 @@ fn bench_neighbors(c: &mut Criterion) {
         }
         (total, hwt)
     }));
+    eprintln!("Done.");
     c.bench(
         "neighbors",
         ParameterizedBenchmark::new(

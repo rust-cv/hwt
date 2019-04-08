@@ -12,6 +12,9 @@ use std::cmp::{max, min};
 /// This should be improved by changing the threshold on a per-level of the tree basis.
 const TAU: usize = 16384;
 
+/// This determines how much space is initially allocated for a leaf vector.
+const INITIAL_CAPACITY: usize = 16;
+
 enum Internal {
     /// This always contains leaves.
     Vec(Vec<u32>),
@@ -21,7 +24,7 @@ enum Internal {
 
 impl Default for Internal {
     fn default() -> Self {
-        Internal::Vec(Vec::with_capacity(TAU))
+        Internal::Vec(Vec::with_capacity(INITIAL_CAPACITY))
     }
 }
 
@@ -93,16 +96,14 @@ impl Hwt {
         // Use the old vec to create a new map for the node.
         self.internals[internal] = match old_vec {
             Internal::Vec(v) => {
-                let mut map = HashMap::with_capacity(TAU);
+                let mut map = HashMap::new();
                 for leaf in v.into_iter() {
                     let leaf_feature = lookup(leaf);
                     let leaf_indices = indices128(leaf_feature);
                     let new_internal = *map
                         .entry(leaf_indices[level])
                         .or_insert_with(|| self.allocate_internal());
-                    if let Internal::Vec(ref mut v) =
-                        self.internals[new_internal as usize]
-                    {
+                    if let Internal::Vec(ref mut v) = self.internals[new_internal as usize] {
                         v.push(leaf);
                     } else {
                         unreachable!(
@@ -225,9 +226,7 @@ impl Hwt {
         let mut node = weight;
         for &index in &indices {
             match &self.internals[bucket] {
-                Internal::Vec(vec) => {
-                    return vec.iter().cloned().find(|&n| lookup(n) == feature)
-                }
+                Internal::Vec(vec) => return vec.iter().cloned().find(|&n| lookup(n) == feature),
                 Internal::Map(map) => {
                     if let Some(&occupied_node) = map.get(&node) {
                         bucket = occupied_node as usize;

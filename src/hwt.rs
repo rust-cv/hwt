@@ -1,23 +1,33 @@
 use crate::indices::*;
 use crate::search::*;
-use arrayvec::ArrayVec;
-use hashbrown::{
-    hash_map::{self, Entry},
-    HashMap,
-};
+use hashbrown::{hash_map::Entry, HashMap};
 use std::cmp::{max, min};
 
-const HIGH: u32 = 0x8000_0000;
 /// This threshold determines whether to perform a brute-force search in a bucket
 /// instead of a targeted search if the amount of nodes is less than this number.
 ///
+/// Since we do a brute force search in an internal node with < `TAU` leaves,
+/// this also defines the threshold at which a vector must be split into a hash table.
+///
 /// This should be improved by changing the threshold on a per-level of the tree basis.
-const FULL_SEARCH_THRESHOLD: usize = 16384;
+const TAU: usize = 16384;
+
+enum InternalStore {
+    /// This always contains leaves.
+    Vec(Vec<u32>),
+    /// This always points to another internal node.
+    Map(HashMap<usize, u32>),
+}
+
+impl Default for InternalStore {
+    fn default() -> Self {
+        InternalStore::Vec(Vec::with_capacity(TAU))
+    }
+}
 
 #[derive(Default)]
 struct Internal {
-    map: HashMap<usize, u32>,
-    count: usize,
+    store: InternalStore,
 }
 
 pub struct Hwt {
@@ -26,6 +36,7 @@ pub struct Hwt {
     /// just a bump allocator for internal nodes. It is possible to have more than 2^31 entries, but
     /// 2^31 internal nodes cannot be exceeded.
     internals: Vec<Internal>,
+    count: usize,
 }
 
 impl Hwt {
@@ -49,7 +60,7 @@ impl Hwt {
     /// assert_eq!(hwt.len(), 1);
     /// ```
     pub fn len(&self) -> usize {
-        self.internals[0].count
+        self.count
     }
 
     /// Checks if the `Hwt` is empty.
@@ -65,11 +76,49 @@ impl Hwt {
         self.len() == 0
     }
 
-    /// Decreases the count of every node descending down to a particular index.
-    /// This should be used to undo the counting up if there is a duplicate insert
-    /// or when removing things from the Hwt.
-    fn remove_count(&mut self, _indices: [usize; 7]) {
-        unimplemented!()
+    fn allocate_internal(&mut self) -> u32 {
+        let internal = self.internals.len() as u32;
+        assert!(internal < std::u32::MAX);
+        self.internals.push(Internal::default());
+        internal
+    }
+
+    /// Converts an internal node from a `Vec` of leaves to a `HashMap` from indices to internal nodes.
+    ///
+    /// `internal` must be the internal node index which should be replaced
+    /// `level` must be set from 0 to 6 inclusive. If it is 0, this is a bucket in the top level.
+    /// `lookup` must allow looking up the feature of leaves.
+    fn convert<F>(&mut self, internal: usize, level: usize, mut lookup: F)
+    where
+        F: FnMut(u32) -> u128,
+    {
+        // Swap a temporary vec with the one in the store to avoid the wrath of the borrow checker.
+        let mut old_vec = InternalStore::Vec(Vec::new());
+        std::mem::swap(&mut self.internals[internal].store, &mut old_vec);
+        // Use the old vec to create a new map for the node.
+        self.internals[internal].store = match old_vec {
+            InternalStore::Vec(v) => {
+                let mut map = HashMap::with_capacity(TAU);
+                for leaf in v.into_iter() {
+                    let leaf_feature = lookup(leaf);
+                    let leaf_indices = indices128(leaf_feature);
+                    let new_internal = *map
+                        .entry(leaf_indices[level])
+                        .or_insert_with(|| self.allocate_internal());
+                    if let InternalStore::Vec(ref mut v) =
+                        self.internals[new_internal as usize].store
+                    {
+                        v.push(leaf);
+                    } else {
+                        unreachable!(
+                            "cannot have InternalStore::Map in subtable when just created"
+                        );
+                    }
+                }
+                InternalStore::Map(map)
+            }
+            _ => panic!("tried to convert an InternalStore::Map"),
+        }
     }
 
     /// Inserts an item ID to the `Hwt`.
@@ -87,98 +136,67 @@ impl Hwt {
     /// hwt.insert(0b010, 1, |_| 0b101);
     /// assert_eq!(hwt.len(), 2);
     /// ```
-    pub fn insert<F>(&mut self, feature: u128, item: u32, mut lookup: F) -> Option<u32>
+    pub fn insert<F>(&mut self, feature: u128, item: u32, mut lookup: F)
     where
         F: FnMut(u32) -> u128,
     {
-        assert_eq!(item & HIGH, 0);
+        // No matter what we will insert the item, so increase the count now.
+        self.count += 1;
         // Compute the indices of the buckets and the sizes of the buckets
         // for each layer of the tree.
-        let (indices, _, _) = indices128(feature);
+        let indices = indices128(feature);
         // The first index in the tree is actually the overall weight of
         // the whole number.
         let weight = feature.count_ones() as usize;
         let mut node = weight;
         let mut bucket = 0;
+        let mut create_internal = false;
+        #[allow(clippy::needless_range_loop)]
         for i in 0..7 {
-            match self.internals[bucket].map.entry(node) {
-                Entry::Occupied(o) => {
-                    let occupied_node = *o.get();
-                    // If its an internal node.
-                    if occupied_node & HIGH == 0 {
-                        let internal = occupied_node;
-                        // Increase the bucket by 1 before we descend since we will be inserting a node.
-                        self.internals[bucket].count += 1;
-                        // Go to the next node.
-                        bucket = internal as usize;
-                        node = indices[i];
-                    } else {
-                        // It is a leaf node.
-                        let leaf = occupied_node;
-                        // Increase the internals by `1` before we go further.
-                        self.internals[bucket].count += 1;
-                        // Get the leaf's indices. The size of any table we care
-                        // about is the same as this `item`.
-                        let leaf_feature = lookup(leaf & !HIGH);
-                        let (leaf_indices, _, _) = indices128(leaf_feature);
-                        // Iterate and make more child nodes until the `item` and
-                        // the leaf differ.
-                        for i in i..7 {
-                            // Allocate the space for the next bucket.
-                            // This will always be the same between both items.
-                            let location = self.internals.len() as u32;
-                            // Ensure the bucket index hasn't gotten larger than
-                            // the max.
-                            assert!(location & HIGH == 0);
-                            // Create the new bucket.
-                            let mut new_bucket = Internal::default();
-                            // Set the new bucket to 2 since we are putting 2 nodes into it.
-                            new_bucket.count = 2;
-                            // Add the bucket to this parent node.
-                            // We already accounted for the count change by assigning 2 to new buckets
-                            // and incrementing the first bucket's count by 1.
-                            self.internals[bucket].map.insert(node, location);
-                            // Update the node to be this node.
-                            bucket = location as usize;
-                            node = indices[i];
-                            // Check if the indices are different.
-                            if leaf_indices[i] != indices[i] {
-                                // If they finally differ, we can add them to
-                                // different spots and return.
-                                new_bucket.map.insert(leaf_indices[i], leaf);
-                                new_bucket.map.insert(indices[i], item | HIGH);
-                                // Push the new bucket before returning.
-                                self.internals.push(new_bucket);
-                                return None;
-                            }
-                            // If they are the same, we should do it again.
-                            // Push the new bucket.
-                            self.internals.push(new_bucket);
-                        }
-                        panic!(
-                            "hwt::Hwt::insert(): different items not supposed to land in the same spot: {:X}, {:X}, {:X?}, {:X?}",
-                            feature, leaf_feature, indices, leaf_indices
-                        );
+            match &mut self.internals[bucket].store {
+                InternalStore::Vec(ref mut v) => {
+                    v.push(item);
+                    if v.len() > TAU {
+                        self.convert(bucket, i, &mut lookup);
                     }
+                    return;
                 }
-                Entry::Vacant(v) => {
-                    v.insert(item | HIGH);
-                    // Increase the internals by `1`.
-                    self.internals[bucket].count += 1;
-                    return None;
+                InternalStore::Map(ref mut map) => {
+                    match map.entry(node) {
+                        Entry::Occupied(o) => {
+                            let internal = *o.get();
+                            // Go to the next node.
+                            bucket = internal as usize;
+                            node = indices[i];
+                        }
+                        Entry::Vacant(_) => {
+                            create_internal = true;
+                            break;
+                        }
+                    }
                 }
             }
         }
-        match self.internals[bucket].map.entry(node) {
-            // If it is occupied, then it can only be a leaf. We replace that leaf.
-            Entry::Occupied(o) => Some(o.replace_entry(item | HIGH).1),
-            // A vacant entry should be replaced.
-            Entry::Vacant(v) => {
-                v.insert(item | HIGH);
-                // Increase the internals by `1`.
-                self.internals[bucket].count += 1;
-                // TODO: Call remove_count() here after it works!
-                None
+        if create_internal {
+            // Allocate a new internal Vec node.
+            let new_internal = self.allocate_internal();
+            // Add the item to the new internal Vec.
+            if let InternalStore::Vec(ref mut v) = self.internals[new_internal as usize].store {
+                v.push(item);
+            } else {
+                unreachable!("cannot have InternalStore::Map in subtable when just created");
+            }
+            // Add the new internal to the vacant map spot.
+            if let InternalStore::Map(ref mut map) = &mut self.internals[bucket].store {
+                map.insert(node, new_internal);
+            } else {
+                unreachable!("shouldn't ever get vec after finding vacant map node");
+            }
+        } else {
+            // We are just adding this item to the bottom of the tree in a Vec.
+            match self.internals[bucket].store {
+                InternalStore::Vec(ref mut v) => v.push(item),
+                _ => panic!("Can't have InternalStore::Map at bottom of tree"),
             }
         }
     }
@@ -190,34 +208,39 @@ impl Hwt {
     /// ```
     /// # use hwt::Hwt;
     /// let mut hwt = Hwt::new();
-    /// hwt.insert(0b101, 0, |_| 0b010);
-    /// hwt.insert(0b010, 1, |_| 0b101);
-    /// assert_eq!(hwt.get(0b101), Some(0));
-    /// assert_eq!(hwt.get(0b010), Some(1));
-    /// assert_eq!(hwt.get(0b000), None);
-    /// assert_eq!(hwt.get(0b111), None);
+    /// let lookup = |n| match n { 0 => 0b101, 1 => 0b010, _ => panic!() };
+    /// hwt.insert(0b101, 0, lookup);
+    /// hwt.insert(0b010, 1, lookup);
+    /// assert_eq!(hwt.get(0b101, lookup), Some(0));
+    /// assert_eq!(hwt.get(0b010, lookup), Some(1));
+    /// assert_eq!(hwt.get(0b000, lookup), None);
+    /// assert_eq!(hwt.get(0b111, lookup), None);
     /// ```
-    pub fn get(&mut self, feature: u128) -> Option<u32> {
+    pub fn get<F>(&mut self, feature: u128, mut lookup: F) -> Option<u32>
+    where
+        F: FnMut(u32) -> u128,
+    {
         // Compute the indices of the buckets and the sizes of the buckets
         // for each layer of the tree.
-        let (indices, _, _) = indices128(feature);
+        let indices = indices128(feature);
         // The first index in the tree is actually the overall weight of
         // the whole number.
         let weight = feature.count_ones() as usize;
         let mut bucket = 0;
         let mut node = weight;
         for &index in &indices {
-            if let Some(&occupied_node) = self.internals[bucket].map.get(&node) {
-                if occupied_node & HIGH == 0 {
-                    // It is internal.
-                    bucket = occupied_node as usize;
-                    node = index;
-                } else {
-                    // It is a leaf.
-                    return Some(occupied_node & !HIGH);
+            match &self.internals[bucket].store {
+                InternalStore::Vec(vec) => {
+                    return vec.iter().cloned().find(|&n| lookup(n) == feature)
                 }
-            } else {
-                return None;
+                InternalStore::Map(map) => {
+                    if let Some(&occupied_node) = map.get(&node) {
+                        bucket = occupied_node as usize;
+                        node = index;
+                    } else {
+                        return None;
+                    }
+                }
             }
         }
         None
@@ -466,54 +489,24 @@ impl Hwt {
         I: Iterator<Item = u32>,
         TWS: Clone,
     {
-        if self.internals[bucket].count < FULL_SEARCH_THRESHOLD {
-            // If we have very few leaves, we want to do a brute-force search.
-            Box::new(
-                self.bucket_brute_force(bucket)
+        match &self.internals[bucket].store {
+            InternalStore::Vec(v) => Box::new(
+                v.iter()
+                    .cloned()
                     .filter(move |&leaf| (lookup(leaf) ^ feature).count_ones() <= radius),
-            ) as Box<dyn Iterator<Item = u32> + 'a>
-        } else {
-            Box::new(indices.flat_map(move |(index, tws)| {
-                if let Some(&occupied_node) = self.internals[bucket].map.get(&index) {
-                    if occupied_node & HIGH != 0 {
-                        // The node is a leaf.
-                        let leaf = occupied_node & !HIGH;
-                        either::Left(if (lookup(leaf) ^ feature).count_ones() <= radius {
-                            Some(leaf).into_iter()
-                        } else {
-                            None.into_iter()
-                        })
-                    } else {
+            ) as Box<dyn Iterator<Item = u32> + 'a>,
+            InternalStore::Map(m) => {
+                Box::new(indices.flat_map(move |(index, tws)| {
+                    if let Some(&occupied_node) = m.get(&index) {
                         // The node is an internal.
                         let subbucket = occupied_node as usize;
                         either::Right(subtable(self, radius, feature, subbucket, tws, lookup))
-                    }
-                } else {
-                    either::Left(None.into_iter())
-                }
-            })) as Box<dyn Iterator<Item = u32> + 'a>
-        }
-    }
-
-    fn bucket_brute_force<'a>(&'a self, bucket: usize) -> impl Iterator<Item = u32> + 'a {
-        // Make the Vec with the maximum capacity we will need.
-        let mut bucket_stack: ArrayVec<[hash_map::Iter<'_, usize, u32>; 8]> = ArrayVec::new();
-        bucket_stack.push(self.internals[bucket].map.iter());
-        std::iter::from_fn(move || {
-            while let Some(mut iter) = bucket_stack.pop() {
-                if let Some((_, &sub)) = iter.next() {
-                    bucket_stack.push(iter);
-                    if sub & HIGH == 0 {
-                        // It is an internal node.
-                        bucket_stack.push(self.internals[sub as usize].map.iter())
                     } else {
-                        // It is a leaf.
-                        return Some(sub & !HIGH);
+                        either::Left(None.into_iter())
                     }
-                }
+                })) as Box<dyn Iterator<Item = u32> + 'a>
             }
-            None
-        })
+        }
     }
 }
 
@@ -525,6 +518,7 @@ impl Default for Hwt {
         // `NBits + 1` child nodes.
         Self {
             internals: vec![Internal::default()],
+            count: 0,
         }
     }
 }

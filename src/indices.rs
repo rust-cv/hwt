@@ -5,7 +5,7 @@ use std::cmp::min;
 ///
 /// It is possible for the last index to have a bucket size that can only fit
 /// in a `u128`.
-pub fn indices128(v: u128) -> ([usize; 7], [usize; 6], u128) {
+pub fn indices128(v: u128) -> [usize; 7] {
     const NBITS: u32 = 128;
     const HBITS: u32 = NBITS / 2;
     let ones = v.count_ones();
@@ -16,26 +16,15 @@ pub fn indices128(v: u128) -> ([usize; 7], [usize; 6], u128) {
 
     // Get the indices and the `MAX - MIN` for the lower levels.
     let halves = [indices64(v as u64), indices64((v >> HBITS) as u64)];
-    (
-        [
-            index,
-            halves[0].0[0] + halves[1].0[0] * halves[0].1[0],
-            halves[0].0[1] + halves[1].0[1] * halves[0].1[1],
-            halves[0].0[2] + halves[1].0[2] * halves[0].1[2],
-            halves[0].0[3] + halves[1].0[3] * halves[0].1[3],
-            halves[0].0[4] + halves[1].0[4] * halves[0].1[4],
-            halves[0].0[5] + halves[1].0[5] * halves[0].1[5],
-        ],
-        [
-            (lmax - lmin + 1) as usize,
-            halves[0].1[0] * halves[1].1[0],
-            halves[0].1[1] * halves[1].1[1],
-            halves[0].1[2] * halves[1].1[2],
-            halves[0].1[3] * halves[1].1[3],
-            halves[0].1[4] * halves[1].1[4],
-        ],
-        halves[0].1[5] as u128 * halves[1].1[5] as u128,
-    )
+    [
+        index,
+        halves[0].0[0] + halves[1].0[0] * halves[0].1[0],
+        halves[0].0[1] + halves[1].0[1] * halves[0].1[1],
+        halves[0].0[2] + halves[1].0[2] * halves[0].1[2],
+        halves[0].0[3] + halves[1].0[3] * halves[0].1[3],
+        halves[0].0[4] + halves[1].0[4] * halves[0].1[4],
+        halves[0].0[5] + halves[1].0[5] * halves[0].1[5],
+    ]
 }
 
 /// Compute the indices for a 32-bit integer,
@@ -260,31 +249,27 @@ mod test {
     fn test_indices128() {
         assert_eq!(
             indices128(0x0000_0000_0000_0000_0000_0000_0000_0000),
-            ([0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1], 1)
+            [0, 0, 0, 0, 0, 0, 0]
         );
 
         assert_eq!(
             indices128(0x0000_0040_0000_0000_0000_0000_0000_0000),
-            ([1, 1, 0, 0, 1, 1, 0], [2, 2, 2, 2, 2, 2], 2)
+            [1, 1, 0, 0, 1, 1, 0]
         );
 
         assert_eq!(
             indices128(0x0000_0000_0000_0000_FFFF_FFFF_FFFF_FFFF),
-            ([0, 0, 0, 0, 0, 0, 0], [65, 1, 1, 1, 1, 1], 1)
+            [0, 0, 0, 0, 0, 0, 0]
         );
 
         assert_eq!(
             indices128(0xFFFF_FFFF_FFFF_FFF0_0000_0000_0000_000F),
-            (
-                [60, 5 * 4, 5 * 4, 5 * 4, 5 * 4, 0, 0],
-                [65, 5 * 5, 5 * 5, 5 * 5, 5 * 5, 1],
-                1
-            )
+            [60, 5 * 4, 5 * 4, 5 * 4, 5 * 4, 0, 0]
         );
 
         assert_eq!(
             indices128(0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF),
-            ([0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1], 1)
+            [0, 0, 0, 0, 0, 0, 0]
         );
     }
 }

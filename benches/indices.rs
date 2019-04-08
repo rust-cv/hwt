@@ -33,7 +33,7 @@ fn bench_indices(c: &mut Criterion) {
                 input
                     .iter()
                     .cloned()
-                    .map(|i| indices4(i as u8 & 0b1111).0[0])
+                    .map(|i| indices4(i as u8 & 0b1111).0[1])
                     .sum::<usize>()
             });
         })
@@ -48,7 +48,7 @@ fn bench_indices(c: &mut Criterion) {
                 input
                     .iter()
                     .cloned()
-                    .map(|i| indices8(i as u8).0[0])
+                    .map(|i| indices8(i as u8).0[2])
                     .sum::<usize>()
             });
         })
@@ -63,7 +63,7 @@ fn bench_indices(c: &mut Criterion) {
                 input
                     .iter()
                     .cloned()
-                    .map(|i| indices16(i as u16).0[0])
+                    .map(|i| indices16(i as u16).0[3])
                     .sum::<usize>()
             });
         })
@@ -78,7 +78,7 @@ fn bench_indices(c: &mut Criterion) {
                 input
                     .iter()
                     .cloned()
-                    .map(|i| indices32(i as u32).0[0])
+                    .map(|i| indices32(i as u32).0[4])
                     .sum::<usize>()
             });
         })
@@ -93,7 +93,7 @@ fn bench_indices(c: &mut Criterion) {
                 input
                     .iter()
                     .cloned()
-                    .map(|i| indices64(i as u64).0[0])
+                    .map(|i| indices64(i as u64).0[5])
                     .sum::<usize>()
             });
         })
@@ -108,7 +108,7 @@ fn bench_indices(c: &mut Criterion) {
                 input
                     .iter()
                     .cloned()
-                    .map(|i| indices128(i as u128).0[0])
+                    .map(|i| indices128(i as u128)[6])
                     .sum::<usize>()
             });
         })

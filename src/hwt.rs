@@ -12,22 +12,17 @@ use std::cmp::{max, min};
 /// This should be improved by changing the threshold on a per-level of the tree basis.
 const TAU: usize = 16384;
 
-enum InternalStore {
+enum Internal {
     /// This always contains leaves.
     Vec(Vec<u32>),
     /// This always points to another internal node.
     Map(HashMap<usize, u32>),
 }
 
-impl Default for InternalStore {
+impl Default for Internal {
     fn default() -> Self {
-        InternalStore::Vec(Vec::with_capacity(TAU))
+        Internal::Vec(Vec::with_capacity(TAU))
     }
-}
-
-#[derive(Default)]
-struct Internal {
-    store: InternalStore,
 }
 
 pub struct Hwt {
@@ -93,11 +88,11 @@ impl Hwt {
         F: FnMut(u32) -> u128,
     {
         // Swap a temporary vec with the one in the store to avoid the wrath of the borrow checker.
-        let mut old_vec = InternalStore::Vec(Vec::new());
-        std::mem::swap(&mut self.internals[internal].store, &mut old_vec);
+        let mut old_vec = Internal::Vec(Vec::new());
+        std::mem::swap(&mut self.internals[internal], &mut old_vec);
         // Use the old vec to create a new map for the node.
-        self.internals[internal].store = match old_vec {
-            InternalStore::Vec(v) => {
+        self.internals[internal] = match old_vec {
+            Internal::Vec(v) => {
                 let mut map = HashMap::with_capacity(TAU);
                 for leaf in v.into_iter() {
                     let leaf_feature = lookup(leaf);
@@ -105,8 +100,8 @@ impl Hwt {
                     let new_internal = *map
                         .entry(leaf_indices[level])
                         .or_insert_with(|| self.allocate_internal());
-                    if let InternalStore::Vec(ref mut v) =
-                        self.internals[new_internal as usize].store
+                    if let Internal::Vec(ref mut v) =
+                        self.internals[new_internal as usize]
                     {
                         v.push(leaf);
                     } else {
@@ -115,7 +110,7 @@ impl Hwt {
                         );
                     }
                 }
-                InternalStore::Map(map)
+                Internal::Map(map)
             }
             _ => panic!("tried to convert an InternalStore::Map"),
         }
@@ -153,15 +148,15 @@ impl Hwt {
         let mut create_internal = false;
         #[allow(clippy::needless_range_loop)]
         for i in 0..7 {
-            match &mut self.internals[bucket].store {
-                InternalStore::Vec(ref mut v) => {
+            match &mut self.internals[bucket] {
+                Internal::Vec(ref mut v) => {
                     v.push(item);
                     if v.len() > TAU {
                         self.convert(bucket, i, &mut lookup);
                     }
                     return;
                 }
-                InternalStore::Map(ref mut map) => {
+                Internal::Map(ref mut map) => {
                     match map.entry(node) {
                         Entry::Occupied(o) => {
                             let internal = *o.get();
@@ -181,21 +176,21 @@ impl Hwt {
             // Allocate a new internal Vec node.
             let new_internal = self.allocate_internal();
             // Add the item to the new internal Vec.
-            if let InternalStore::Vec(ref mut v) = self.internals[new_internal as usize].store {
+            if let Internal::Vec(ref mut v) = self.internals[new_internal as usize] {
                 v.push(item);
             } else {
                 unreachable!("cannot have InternalStore::Map in subtable when just created");
             }
             // Add the new internal to the vacant map spot.
-            if let InternalStore::Map(ref mut map) = &mut self.internals[bucket].store {
+            if let Internal::Map(ref mut map) = &mut self.internals[bucket] {
                 map.insert(node, new_internal);
             } else {
                 unreachable!("shouldn't ever get vec after finding vacant map node");
             }
         } else {
             // We are just adding this item to the bottom of the tree in a Vec.
-            match self.internals[bucket].store {
-                InternalStore::Vec(ref mut v) => v.push(item),
+            match self.internals[bucket] {
+                Internal::Vec(ref mut v) => v.push(item),
                 _ => panic!("Can't have InternalStore::Map at bottom of tree"),
             }
         }
@@ -229,11 +224,11 @@ impl Hwt {
         let mut bucket = 0;
         let mut node = weight;
         for &index in &indices {
-            match &self.internals[bucket].store {
-                InternalStore::Vec(vec) => {
+            match &self.internals[bucket] {
+                Internal::Vec(vec) => {
                     return vec.iter().cloned().find(|&n| lookup(n) == feature)
                 }
-                InternalStore::Map(map) => {
+                Internal::Map(map) => {
                     if let Some(&occupied_node) = map.get(&node) {
                         bucket = occupied_node as usize;
                         node = index;
@@ -489,13 +484,13 @@ impl Hwt {
         I: Iterator<Item = u32>,
         TWS: Clone,
     {
-        match &self.internals[bucket].store {
-            InternalStore::Vec(v) => Box::new(
+        match &self.internals[bucket] {
+            Internal::Vec(v) => Box::new(
                 v.iter()
                     .cloned()
                     .filter(move |&leaf| (lookup(leaf) ^ feature).count_ones() <= radius),
             ) as Box<dyn Iterator<Item = u32> + 'a>,
-            InternalStore::Map(m) => {
+            Internal::Map(m) => {
                 Box::new(indices.flat_map(move |(index, tws)| {
                     if let Some(&occupied_node) = m.get(&index) {
                         // The node is an internal.

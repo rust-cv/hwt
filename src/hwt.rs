@@ -12,7 +12,7 @@ const HIGH: u32 = 0x8000_0000;
 /// instead of a targeted search if the amount of nodes is less than this number.
 ///
 /// This should be improved by changing the threshold on a per-level of the tree basis.
-const FULL_SEARCH_THRESHOLD: usize = 1024;
+const FULL_SEARCH_THRESHOLD: usize = 16384;
 
 #[derive(Default)]
 struct Internal {
@@ -175,7 +175,6 @@ impl Hwt {
             // A vacant entry should be replaced.
             Entry::Vacant(v) => {
                 v.insert(item | HIGH);
-                dbg!("TODO: If a node is replaced, the tree count is now invalid.");
                 // Increase the internals by `1`.
                 self.internals[bucket].count += 1;
                 // TODO: Call remove_count() here after it works!

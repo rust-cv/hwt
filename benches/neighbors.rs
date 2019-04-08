@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::iter::FromIterator;
 
 fn bench_neighbors(c: &mut Criterion) {
-    let max_tree_magnitude = 26;
+    let max_tree_magnitude = 25;
     let all_sizes = (0..=max_tree_magnitude).map(|n| 2usize.pow(n));
     let mut rng = SmallRng::from_seed([5; 16]);
     // Get the bigest input size and then generate all inputs from that.
@@ -14,6 +14,11 @@ fn bench_neighbors(c: &mut Criterion) {
     let all_input = rng
         .sample_iter(&rand::distributions::Standard)
         .take(all_sizes.clone().rev().next().unwrap())
+        .collect::<Vec<u128>>();
+    // Sample 10000 random features for lookups.
+    let random_samples = rng
+        .sample_iter(&rand::distributions::Standard)
+        .take(10000)
         .collect::<Vec<u128>>();
     eprintln!("Done.");
     eprintln!("Generating Hamming Weight Trees...");
@@ -33,11 +38,11 @@ fn bench_neighbors(c: &mut Criterion) {
             "nearest_neighbor",
             move |bencher: &mut Bencher, total: &usize| {
                 let hwt = &hwt_map[total];
-                let mut cycle_range = (0..).take(*total).cycle();
+                let mut cycle_range = random_samples.iter().cloned().cycle();
                 bencher.iter(|| {
                     let feature = cycle_range.next().unwrap();
                     assert_eq!(
-                        hwt.nearest(all_input[feature], &|n| all_input[n as usize])
+                        hwt.nearest(feature, &|n| all_input[n as usize])
                             .take(1)
                             .count(),
                         1

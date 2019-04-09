@@ -278,6 +278,19 @@
 //! perform a search over subsequent substrings by passing them a `new_radius`
 //! of `new_radius = radius - SOD`. This guarantees that all paths in that
 //! substring also dont exceed the total `SOD` for all substrings in the level.
+//!
+//! # Nearest neighbor
+//!
+//! When we use the above radius searching algorithm, we search every feature
+//! that could be at a particular radius or lower. Unfortunately, when we are
+//! searching for nearest neighbors in a hamming weight tree, we must search
+//! at radius 0, then radius 1, and so on. If we use the above algorithm,
+//! since hamming space has incredibly thick boundaries (see the paper
+//! Thick Boundaries in Binary Space and Their Influence on Nearest-Neighbor
+//! Search), it can be possible that a great proportion of the entire hamming
+//! space is equidistant with the nearest neighbor. This means that our search
+//! algorithm will make us test all of those places in the space if they have
+//! tables in the tree.
 
 mod hwt;
 pub mod indices;

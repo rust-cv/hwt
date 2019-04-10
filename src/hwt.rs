@@ -19,7 +19,7 @@ enum Internal {
     /// This always contains leaves.
     Vec(Vec<u32>),
     /// This always points to another internal node.
-    Map(HashMap<usize, u32>),
+    Map(HashMap<usize, u32, std::hash::BuildHasherDefault<ahash::AHasher>>),
 }
 
 impl Default for Internal {
@@ -96,7 +96,7 @@ impl Hwt {
         // Use the old vec to create a new map for the node.
         self.internals[internal] = match old_vec {
             Internal::Vec(v) => {
-                let mut map = HashMap::new();
+                let mut map = HashMap::default();
                 for leaf in v.into_iter() {
                     let leaf_feature = lookup(leaf);
                     let leaf_indices = indices128(leaf_feature);

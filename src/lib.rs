@@ -292,6 +292,7 @@
 //! algorithm will make us test all of those places in the space if they have
 //! tables in the tree.
 
+pub mod chf;
 mod hwt;
 pub mod indices;
 pub mod search;

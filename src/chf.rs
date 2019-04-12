@@ -62,94 +62,39 @@
 //!
 //! This module contains routines for doing the above operations.
 
-/// Computes the mask for a CLHF at `level`. Panics if level is not in the
-/// range `[1, 7]`.
-pub fn clhf_mask(level: u32) -> u128 {
-    match level {
-        7 => 0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA,
-        1...6 => {
-            let next = clhf_mask(level + 1);
-            next >> (2 * (7 - level))
-        }
-        _ => panic!("hwt::chf::clhf_mask() must be passed a level in the range [1, 7]"),
-    }
+use swar::*;
+
+/// Computes CRHF<1> from CHF<0> and CLHF<1>.
+pub fn crhf1(chf: u128, clhf: Bits64<u128>) -> Bits64<u128> {
+    Bits64(chf - (clhf.0 >> 64))
 }
 
-const CLHF_MASKS: [u128; 7] = [
-    0xFFFF_FFFF_FFFF_FFFF_0000_0000_0000_0000,
-    0xFFFF_FFFF_0000_0000_FFFF_FFFF_0000_0000,
-    0xFFFF_0000_FFFF_0000_FFFF_0000_FFFF_0000,
-    0xFF00_FF00_FF00_FF00_FF00_FF00_FF00_FF00,
-    0xF0F0_F0F0_F0F0_F0F0_F0F0_F0F0_F0F0_F0F0,
-    0xCCCC_CCCC_CCCC_CCCC_CCCC_CCCC_CCCC_CCCC,
-    0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA,
-];
-
-const CRHF_MASKS: [u128; 7] = [
-    0x0000_0000_0000_0000_FFFF_FFFF_FFFF_FFFF,
-    0x0000_0000_FFFF_FFFF_0000_0000_FFFF_FFFF,
-    0x0000_FFFF_0000_FFFF_0000_FFFF_0000_FFFF,
-    0x00FF_00FF_00FF_00FF_00FF_00FF_00FF_00FF,
-    0x0F0F_0F0F_0F0F_0F0F_0F0F_0F0F_0F0F_0F0F,
-    0x3333_3333_3333_3333_3333_3333_3333_3333,
-    0x5555_5555_5555_5555_5555_5555_5555_5555,
-];
-
-/// Converts a CHF<n> to a CLHF<n>
-pub fn chf_to_clhf(chf: u128, n: usize) -> u128 {
-    match n {
-        0 => panic!("hwt::chf::chf_to_clhf() can't create a CLHF<0>"),
-        1...7 => chf & CLHF_MASKS[n - 1],
-        n => panic!("hwt::chf::chf_to_clhf() can't create a CLHF<{}>", n),
-    }
+/// Computes CRHF<2> from CHF<1> and CLHF<2>.
+pub fn crhf2(chf: Bits64<u128>, clhf: Bits32<u128>) -> Bits32<u128> {
+    Bits32(chf.0 - (clhf.0 >> 32))
 }
 
-/// Converts a CHF<n> to a CRHF<n>
-pub fn chf_to_crhf(chf: u128, n: usize) -> u128 {
-    match n {
-        0 => panic!("hwt::chf::chf_to_crhf() can't create a CRHF<0>"),
-        1...7 => chf & CRHF_MASKS[n - 1],
-        n => panic!("hwt::chf::chf_to_crhf() can't create a CRHF<{}>", n),
-    }
+/// Computes CRHF<3> from CHF<2> and CLHF<3>.
+pub fn crhf3(chf: Bits32<u128>, clhf: Bits16<u128>) -> Bits16<u128> {
+    Bits16(chf.0 - (clhf.0 >> 16))
 }
 
-/// Computes CRHF<n+1> from CHF<n> and CLHF<n+1>.
-pub fn compute_crhf(chf: u128, clhf: u128, n: usize) -> u128 {
-    match n {
-        0...6 => chf - (clhf >> (1 << (6 - n))),
-        _ => panic!("hwt::chf::chf_to_crhf() can't create a CRHF<{}>", n),
-    }
+/// Computes CRHF<4> from CHF<3> and CLHF<4>.
+pub fn crhf4(chf: Bits16<u128>, clhf: Bits8<u128>) -> Bits8<u128> {
+    Bits8(chf.0 - (clhf.0 >> 8))
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
+/// Computes CRHF<5> from CHF<4> and CLHF<5>.
+pub fn crhf5(chf: Bits8<u128>, clhf: Bits4<u128>) -> Bits4<u128> {
+    Bits4(chf.0 - (clhf.0 >> 4))
+}
 
-    #[test]
-    fn test_chf_to_clhf() {
-        assert_eq!(
-            chf_to_clhf(0xDEAD_BEEF_DEAD_BEEF_DEAD_BEEF_DEAD_BEEF, 3),
-            0xDEAD_0000_DEAD_0000_DEAD_0000_DEAD_0000
-        );
-    }
+/// Computes CRHF<6> from CHF<5> and CLHF<6>.
+pub fn crhf6(chf: Bits4<u128>, clhf: Bits2<u128>) -> Bits2<u128> {
+    Bits2(chf.0 - (clhf.0 >> 2))
+}
 
-    #[test]
-    fn test_chf_to_crhf() {
-        assert_eq!(
-            chf_to_crhf(0xDEAD_BEEF_DEAD_BEEF_DEAD_BEEF_DEAD_BEEF, 3),
-            0x0000_BEEF_0000_BEEF_0000_BEEF_0000_BEEF
-        );
-    }
-
-    #[test]
-    fn test_compute_crhf() {
-        assert_eq!(
-            compute_crhf(
-                0x0000_0003_0000_0005_0000_0004_0000_0001,
-                0x0001_0000_0001_0000_0001_0000_0001_0000,
-                2
-            ),
-            0x0000_0002_0000_0004_0000_0003_0000_0000
-        );
-    }
+/// Computes CRHF<7> from CHF<6> and CLHF<7>.
+pub fn crhf7(chf: Bits2<u128>, clhf: Bits1<u128>) -> Bits1<u128> {
+    Bits1(chf.0 - (clhf.0 >> 1))
 }

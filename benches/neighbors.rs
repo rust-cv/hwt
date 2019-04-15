@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::iter::FromIterator;
 
 fn bench_neighbors(c: &mut Criterion) {
-    let max_tree_magnitude = 26;
+    let max_tree_magnitude = 30;
     let all_sizes = (0..=max_tree_magnitude).map(|n| 2usize.pow(n));
     let mut rng = SmallRng::from_seed([5; 16]);
     // Get the bigest input size and then generate all inputs from that.

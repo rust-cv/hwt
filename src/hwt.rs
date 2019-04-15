@@ -1,5 +1,6 @@
 use crate::indices::*;
 use crate::search::*;
+use crate::chf::*;
 use hashbrown::{hash_map::Entry, HashMap};
 use std::cmp::{max, min};
 
@@ -19,7 +20,7 @@ enum Internal {
     /// This always contains leaves.
     Vec(Vec<u32>),
     /// This always points to another internal node.
-    Map(HashMap<usize, u32, std::hash::BuildHasherDefault<ahash::AHasher>>),
+    Map(HashMap<u128, u32, std::hash::BuildHasherDefault<ahash::AHasher>>),
 }
 
 impl Default for Internal {
@@ -84,7 +85,7 @@ impl Hwt {
     /// Converts an internal node from a `Vec` of leaves to a `HashMap` from indices to internal nodes.
     ///
     /// `internal` must be the internal node index which should be replaced
-    /// `level` must be set from 0 to 6 inclusive. If it is 0, this is a bucket in the top level.
+    /// `level` must be set from 0 to 7 inclusive. If it is 0, this is the root.
     /// `lookup` must allow looking up the feature of leaves.
     fn convert<F>(&mut self, internal: usize, level: usize, mut lookup: F)
     where
@@ -99,9 +100,9 @@ impl Hwt {
                 let mut map = HashMap::default();
                 for leaf in v.into_iter() {
                     let leaf_feature = lookup(leaf);
-                    let leaf_indices = indices128(leaf_feature);
+                    let index = indices128(leaf_feature)[level];
                     let new_internal = *map
-                        .entry(leaf_indices[level])
+                        .entry(index)
                         .or_insert_with(|| self.allocate_internal());
                     if let Internal::Vec(ref mut v) = self.internals[new_internal as usize] {
                         v.push(leaf);
@@ -141,14 +142,10 @@ impl Hwt {
         // Compute the indices of the buckets and the sizes of the buckets
         // for each layer of the tree.
         let indices = indices128(feature);
-        // The first index in the tree is actually the overall weight of
-        // the whole number.
-        let weight = feature.count_ones() as usize;
-        let mut node = weight;
         let mut bucket = 0;
         let mut create_internal = false;
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..7 {
+        let vacant_node;
+        for (i, &node) in indices.into_iter().enumerate() {
             match &mut self.internals[bucket] {
                 Internal::Vec(ref mut v) => {
                     v.push(item);
@@ -163,10 +160,10 @@ impl Hwt {
                             let internal = *o.get();
                             // Go to the next node.
                             bucket = internal as usize;
-                            node = indices[i];
                         }
                         Entry::Vacant(_) => {
                             create_internal = true;
+                            vacant_node = node;
                             break;
                         }
                     }
@@ -184,7 +181,7 @@ impl Hwt {
             }
             // Add the new internal to the vacant map spot.
             if let Internal::Map(ref mut map) = &mut self.internals[bucket] {
-                map.insert(node, new_internal);
+                map.insert(vacant_node, new_internal);
             } else {
                 unreachable!("shouldn't ever get vec after finding vacant map node");
             }
@@ -223,14 +220,12 @@ impl Hwt {
         // the whole number.
         let weight = feature.count_ones() as usize;
         let mut bucket = 0;
-        let mut node = weight;
-        for &index in &indices {
+        for index in &indices {
             match &self.internals[bucket] {
                 Internal::Vec(vec) => return vec.iter().cloned().find(|&n| lookup(n) == feature),
                 Internal::Map(map) => {
-                    if let Some(&occupied_node) = map.get(&node) {
+                    if let Some(&occupied_node) = map.get(index) {
                         bucket = occupied_node as usize;
-                        node = index;
                     } else {
                         return None;
                     }

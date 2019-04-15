@@ -269,9 +269,9 @@
 //!
 //! Now the iteration is split into three parts:
 //!
-//! `(-radius + C) / 2..SL` (`SOD = -2TL + C`)
-//! `SL..-SR + TW` (`SOD = -2SL + C`)
-//! `-SR + TW..=(radius + C) / 2` (`SOD = 2TL - C`)
+//! - `(-radius + C) / 2..SL` (`SOD = -2TL + C`)
+//! - `SL..-SR + TW` (`SOD = -2SL + C`)
+//! - `-SR + TW..=(radius + C) / 2` (`SOD = 2TL - C`)
 //!
 //! At this point we can compute the `SOD` over all of our input indices. Now
 //! we iterate over all input indices specificed, compute their `SOD`, and then

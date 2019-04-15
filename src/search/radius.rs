@@ -135,6 +135,7 @@ pub fn search_radius8(
 ///
 /// Returns an iterator over the (tc, sod) target children
 /// and sum of distance pairs.
+#[inline]
 pub fn search_radius4(
     sp: Bits64<u128>,
     sc: Bits32<u128>,
@@ -160,6 +161,7 @@ pub fn search_radius4(
 ///
 /// Returns an iterator over the (tc, sod) target children
 /// and sum of distance pairs.
+#[inline]
 pub fn search_radius2(
     sp: Bits128<u128>,
     sc: Bits64<u128>,

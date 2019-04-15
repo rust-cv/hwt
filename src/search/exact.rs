@@ -124,6 +124,7 @@ pub fn search_exact8(
 /// - `tp` - Target parent CHF<1>
 ///
 /// Returns an iterator over the `tc` (target children).
+#[inline]
 pub fn search_exact4(
     sp: Bits64<u128>,
     sc: Bits32<u128>,
@@ -147,6 +148,7 @@ pub fn search_exact4(
 /// - `tp` - Target parent CHF<0>
 ///
 /// Returns an iterator over the `tc` target children at that radius.
+#[inline]
 pub fn search_exact2(
     sp: Bits128<u128>,
     sc: Bits64<u128>,

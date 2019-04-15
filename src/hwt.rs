@@ -366,7 +366,7 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_exact16(Bits16(indices[3]), Bits8(indices[2]), Bits16(tp), radius)
+            search_exact16(Bits16(indices[3]), Bits8(indices[4]), Bits16(tp), radius)
                 .map(|tc| tc.0),
             Self::exact32,
         )
@@ -389,7 +389,7 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_exact32(Bits8(indices[4]), Bits4(indices[3]), Bits8(tp), radius).map(|tc| tc.0),
+            search_exact32(Bits8(indices[4]), Bits4(indices[5]), Bits8(tp), radius).map(|tc| tc.0),
             Self::exact64,
         )
     }
@@ -411,7 +411,7 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_exact64(Bits4(indices[5]), Bits2(indices[4]), Bits4(tp), radius).map(|tc| tc.0),
+            search_exact64(Bits4(indices[5]), Bits2(indices[6]), Bits4(tp), radius).map(|tc| tc.0),
             Self::exact128,
         )
     }
@@ -433,7 +433,7 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_exact128(Bits2(indices[6]), Bits1(indices[5]), Bits2(tp), radius).map(|tc| tc.0),
+            search_exact128(Bits2(indices[6]), Bits1(indices[7]), Bits2(tp), radius).map(|tc| tc.0),
             |_, _, _, bucket, _, _| -> Box<dyn Iterator<Item = u32> + 'a> {
                 panic!(
                     "hwt::Hwt::neighbors128(): it is an error to find an internal node this far down in the tree (bucket: {})", bucket, 
@@ -556,7 +556,7 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_radius16(Bits16(indices[3]), Bits8(indices[2]), Bits16(tp), radius)
+            search_radius16(Bits16(indices[3]), Bits8(indices[4]), Bits16(tp), radius)
                 .map(|(tc, _sod)| tc.0),
             Self::radius32,
         )
@@ -579,7 +579,7 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_radius32(Bits8(indices[4]), Bits4(indices[3]), Bits8(tp), radius)
+            search_radius32(Bits8(indices[4]), Bits4(indices[5]), Bits8(tp), radius)
                 .map(|(tc, _sod)| tc.0),
             Self::radius64,
         )
@@ -602,7 +602,7 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_radius64(Bits4(indices[5]), Bits2(indices[4]), Bits4(tp), radius)
+            search_radius64(Bits4(indices[5]), Bits2(indices[6]), Bits4(tp), radius)
                 .map(|(tc, _sod)| tc.0),
             Self::radius128,
         )
@@ -625,7 +625,7 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_radius128(Bits2(indices[6]), Bits1(indices[5]), Bits2(tp), radius).map(|(tc, _sod)| tc.0),
+            search_radius128(Bits2(indices[6]), Bits1(indices[7]), Bits2(tp), radius).map(|(tc, _sod)| tc.0),
             |_, _, _, bucket, _, _| -> Box<dyn Iterator<Item = u32> + 'a> {
                 panic!(
                     "hwt::Hwt::neighbors128(): it is an error to find an internal node this far down in the tree (bucket: {})", bucket, 

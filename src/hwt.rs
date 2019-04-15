@@ -11,11 +11,12 @@ use swar::*;
 /// this also defines the threshold at which a vector must be split into a hash table.
 ///
 /// This should be improved by changing the threshold on a per-level of the tree basis.
-const TAU: usize = 16384;
+const TAU: usize = 1024;
 
 /// This determines how much space is initially allocated for a leaf vector.
 const INITIAL_CAPACITY: usize = 16;
 
+#[derive(Debug)]
 enum Internal {
     /// This always contains leaves.
     Vec(Vec<u32>),
@@ -253,31 +254,13 @@ impl Hwt {
     where
         F: Fn(u32) -> u128,
     {
-        // Get the weight.
-        let sw = feature.count_ones();
-        // See if we can find anything at all at weight - radius.
-        let first = if sw >= radius {
-            Some(u128::from(sw - radius))
-        } else {
-            None
-        };
-        // See if we can find anything at all at weight + radius.
-        let second = if sw <= 128 - radius {
-            Some(u128::from(sw + radius))
-        } else {
-            None
-        };
+        // Manually compute the range of `tw` (which is also index)
+        // for the root node since it is unique.
+        let sw = feature.count_ones() as i32;
+        let start = max(0, sw - radius as i32) as u128;
+        let end = min(128, sw + radius as i32) as u128;
         // Iterate over every applicable index in the root.
-        self.bucket_scan(
-            radius,
-            feature,
-            0,
-            lookup,
-            // The index is the `tw` because at the root node indices
-            // are target weights.
-            first.into_iter().chain(second),
-            Self::exact2,
-        )
+        self.bucket_scan_exact(radius, feature, 0, lookup, start..=end, Self::exact2)
     }
 
     fn exact2<'a, F: 'a>(
@@ -292,7 +275,7 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         let indices = indices128(feature);
-        self.bucket_scan(
+        self.bucket_scan_exact(
             radius,
             feature,
             bucket,
@@ -315,7 +298,7 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         let indices = indices128(feature);
-        self.bucket_scan(
+        self.bucket_scan_exact(
             radius,
             feature,
             bucket,
@@ -338,7 +321,7 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         let indices = indices128(feature);
-        self.bucket_scan(
+        self.bucket_scan_exact(
             radius,
             feature,
             bucket,
@@ -361,7 +344,7 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         let indices = indices128(feature);
-        self.bucket_scan(
+        self.bucket_scan_exact(
             radius,
             feature,
             bucket,
@@ -384,7 +367,7 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         let indices = indices128(feature);
-        self.bucket_scan(
+        self.bucket_scan_exact(
             radius,
             feature,
             bucket,
@@ -406,7 +389,7 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         let indices = indices128(feature);
-        self.bucket_scan(
+        self.bucket_scan_exact(
             radius,
             feature,
             bucket,
@@ -428,7 +411,7 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         let indices = indices128(feature);
-        self.bucket_scan(
+        self.bucket_scan_exact(
             radius,
             feature,
             bucket,
@@ -458,7 +441,7 @@ impl Hwt {
         let start = max(0, sw - radius as i32) as u128;
         let end = min(128, sw + radius as i32) as u128;
         // Iterate over every applicable index in the root.
-        self.bucket_scan(
+        self.bucket_scan_radius(
             radius,
             feature,
             0,
@@ -482,7 +465,7 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         let indices = indices128(feature);
-        self.bucket_scan(
+        self.bucket_scan_radius(
             radius,
             feature,
             bucket,
@@ -505,7 +488,7 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         let indices = indices128(feature);
-        self.bucket_scan(
+        self.bucket_scan_radius(
             radius,
             feature,
             bucket,
@@ -528,7 +511,7 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         let indices = indices128(feature);
-        self.bucket_scan(
+        self.bucket_scan_radius(
             radius,
             feature,
             bucket,
@@ -551,7 +534,7 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         let indices = indices128(feature);
-        self.bucket_scan(
+        self.bucket_scan_radius(
             radius,
             feature,
             bucket,
@@ -574,7 +557,7 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         let indices = indices128(feature);
-        self.bucket_scan(
+        self.bucket_scan_radius(
             radius,
             feature,
             bucket,
@@ -597,7 +580,7 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         let indices = indices128(feature);
-        self.bucket_scan(
+        self.bucket_scan_radius(
             radius,
             feature,
             bucket,
@@ -620,7 +603,7 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         let indices = indices128(feature);
-        self.bucket_scan(
+        self.bucket_scan_radius(
             radius,
             feature,
             bucket,
@@ -637,7 +620,7 @@ impl Hwt {
     /// Search the given `bucket` with the `indices` iterator, using `subtable`
     /// to recursively iterate over buckets found inside this bucket.
     #[allow(clippy::too_many_arguments)]
-    fn bucket_scan<'a, F: 'a, I: 'a>(
+    fn bucket_scan_radius<'a, F: 'a, I: 'a>(
         &'a self,
         radius: u32,
         feature: u128,
@@ -655,6 +638,42 @@ impl Hwt {
                 v.iter()
                     .cloned()
                     .filter(move |&leaf| (lookup(leaf) ^ feature).count_ones() <= radius),
+            ) as Box<dyn Iterator<Item = u32> + 'a>,
+            Internal::Map(m) => {
+                Box::new(indices.flat_map(move |tc| {
+                    if let Some(&occupied_node) = m.get(&tc) {
+                        // The node is an internal.
+                        let subbucket = occupied_node as usize;
+                        either::Right(subtable(self, radius, feature, subbucket, tc, lookup))
+                    } else {
+                        either::Left(None.into_iter())
+                    }
+                })) as Box<dyn Iterator<Item = u32> + 'a>
+            }
+        }
+    }
+
+    /// Search the given `bucket` with the `indices` iterator, using `subtable`
+    /// to recursively iterate over buckets found inside this bucket.
+    #[allow(clippy::too_many_arguments)]
+    fn bucket_scan_exact<'a, F: 'a, I: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        lookup: &'a F,
+        indices: impl Iterator<Item = u128> + 'a,
+        subtable: impl Fn(&'a Self, u32, u128, usize, u128, &'a F) -> I + 'a,
+    ) -> Box<dyn Iterator<Item = u32> + 'a>
+    where
+        F: Fn(u32) -> u128,
+        I: Iterator<Item = u32>,
+    {
+        match &self.internals[bucket] {
+            Internal::Vec(v) => Box::new(
+                v.iter()
+                    .cloned()
+                    .filter(move |&leaf| (lookup(leaf) ^ feature).count_ones() == radius),
             ) as Box<dyn Iterator<Item = u32> + 'a>,
             Internal::Map(m) => {
                 Box::new(indices.flat_map(move |tc| {

@@ -168,6 +168,7 @@ pub fn search_radius2(
 /// - `radius` - The maximum possible sum of distances (sod) of matches.
 ///
 /// Returns the iterator over (tl, tr, sod).
+#[inline]
 pub fn search_radius(
     bits: u32,
     sl: u32,

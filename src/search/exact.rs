@@ -1,36 +1,134 @@
 use swar::*;
 use crate::search::*;
-use std::iter::once;
 
 /// Gets all the possible offsets in a feature that maintain a particular
-/// radius at max.
+/// exact radius.
+/// 
+/// - `sp` - Search parent CHF<6>
+/// - `sc` - Search child CHF<7>
+/// - `tp` - Target parent CHF<6>
+/// 
+/// Returns an iterator over the `tc` (target children).
+pub fn search_exact128(
+    sp: Bits2<u128>,
+    sc: Bits1<u128>,
+    tp: Bits2<u128>,
+    radius: u32,
+) -> impl Iterator<Item = Bits1<u128>> {
+    let (lsp, rsp) = sp.halve();
+    let (lsc, rsc) = sc.halve();
+    let (ltp, rtp) = tp.halve();
+
+    search_radius64(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| search_exact64(rsp, rsc, rtp, radius - lsod).map(|rtc| Bits1::union(ltc, rtc)))
+}
+
+/// Gets all the possible offsets in a feature that maintain a particular
+/// exact radius.
+/// 
+/// - `sp` - Search parent CHF<5>
+/// - `sc` - Search child CHF<6>
+/// - `tp` - Target parent CHF<5>
+/// 
+/// Returns an iterator over the `tc` (target children).
+pub fn search_exact64(
+    sp: Bits4<u128>,
+    sc: Bits2<u128>,
+    tp: Bits4<u128>,
+    radius: u32,
+) -> impl Iterator<Item = Bits2<u128>> {
+    let (lsp, rsp) = sp.halve();
+    let (lsc, rsc) = sc.halve();
+    let (ltp, rtp) = tp.halve();
+
+    search_radius32(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| search_exact32(rsp, rsc, rtp, radius - lsod).map(|rtc| Bits2::union(ltc, rtc)))
+}
+
+/// Gets all the possible offsets in a feature that maintain a particular
+/// exact radius.
+/// 
+/// - `sp` - Search parent CHF<4>
+/// - `sc` - Search child CHF<5>
+/// - `tp` - Target parent CHF<4>
+/// 
+/// Returns an iterator over the `tc` (target children).
+pub fn search_exact32(
+    sp: Bits8<u128>,
+    sc: Bits4<u128>,
+    tp: Bits8<u128>,
+    radius: u32,
+) -> impl Iterator<Item = Bits4<u128>> {
+    let (lsp, rsp) = sp.halve();
+    let (lsc, rsc) = sc.halve();
+    let (ltp, rtp) = tp.halve();
+
+    search_radius16(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| search_exact16(rsp, rsc, rtp, radius - lsod).map(|rtc| Bits4::union(ltc, rtc)))
+}
+
+/// Gets all the possible offsets in a feature that maintain a particular
+/// exact radius.
+/// 
+/// - `sp` - Search parent CHF<3>
+/// - `sc` - Search child CHF<4>
+/// - `tp` - Target parent CHF<3>
+/// 
+/// Returns an iterator over the `tc` (target children).
+pub fn search_exact16(
+    sp: Bits16<u128>,
+    sc: Bits8<u128>,
+    tp: Bits16<u128>,
+    radius: u32,
+) -> impl Iterator<Item = Bits8<u128>> {
+    let (lsp, rsp) = sp.halve();
+    let (lsc, rsc) = sc.halve();
+    let (ltp, rtp) = tp.halve();
+
+    search_radius8(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| search_exact8(rsp, rsc, rtp, radius - lsod).map(|rtc| Bits8::union(ltc, rtc)))
+}
+
+/// Gets all the possible offsets in a feature that maintain a particular
+/// exact radius.
+/// 
+/// - `sp` - Search parent CHF<2>
+/// - `sc` - Search child CHF<3>
+/// - `tp` - Target parent CHF<2>
+/// 
+/// Returns an iterator over the `tc` (target children).
+pub fn search_exact8(
+    sp: Bits32<u128>,
+    sc: Bits16<u128>,
+    tp: Bits32<u128>,
+    radius: u32,
+) -> impl Iterator<Item = Bits16<u128>> {
+    let (lsp, rsp) = sp.halve();
+    let (lsc, rsc) = sc.halve();
+    let (ltp, rtp) = tp.halve();
+
+    search_radius4(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| search_exact4(rsp, rsc, rtp, radius - lsod).map(|rtc| Bits16::union(ltc, rtc)))
+}
+
+/// Gets all the possible offsets in a feature that maintain a particular
+/// exact radius.
 /// 
 /// - `sp` - Search parent CHF<1>
 /// - `sc` - Search child CHF<2>
 /// - `tp` - Target parent CHF<1>
 /// 
-/// Returns an iterator over the `tc` target children at that radius.
+/// Returns an iterator over the `tc` (target children).
 pub fn search_exact4(
     sp: Bits64<u128>,
     sc: Bits32<u128>,
     tp: Bits64<u128>,
     radius: u32,
-) -> impl Iterator<Item = Bits64<u128>> {
-    let (usp, lsp) = (sp.0 >> 64, sp.0 & 0x);
-    let (usc, lsc) = sc.split();
-    let (utp, ltp) = tp.split();
+) -> impl Iterator<Item = Bits32<u128>> {
+    let (lsp, rsp) = sp.halve();
+    let (lsc, rsc) = sc.halve();
+    let (ltp, rtp) = tp.halve();
 
-    search_radius_raw2(usp.0, usc.0, utp.0, radius).flat_map(|(, sod)| {
-        // The new radius to search for since we found a radius sod.
-        let radius = radius - sod;
-        search_exact_raw2(lsp.0, lsc.0, ltp.0, radius).map(|lower| {
-            
-        })
-    })
+    search_radius2(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| search_exact2(rsp, rsc, rtp, radius - lsod).map(|rtc| Bits32::union(ltc, rtc)))
 }
 
 /// Gets all the possible offsets in a feature that maintain a particular
-/// radius at max.
+/// exact radius.
 /// 
 /// - `sp` - Search parent CHF<0>
 /// - `sc` - Search child CHF<1>
@@ -50,7 +148,7 @@ pub fn search_exact2(
     // Get the number of ones in the target word.
     let tw = tp.0 as u32;
 
-    search_exact(64, sl, sw, tw, radius).map(|(tl, tr)| Bits64((tl as u128) << 64 | tr as u128))
+    search_exact(64, sl, sw, tw, radius).map(|[tl, tr]| Bits64((tl as u128) << 64 | tr as u128))
 }
 
 /// Iterator over the indices that fall within a radius of a number.
@@ -63,6 +161,7 @@ pub fn search_exact2(
 /// - `radius` - The exact sum of distances (sod) of matches.
 ///
 /// Returns the iterator over (tl, tr).
+#[inline]
 pub fn search_exact(
     bits: u32,
     sl: u32,

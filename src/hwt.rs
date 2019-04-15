@@ -239,11 +239,207 @@ impl Hwt {
         F: Fn(u32) -> u128,
     {
         (0..=128)
-            .map(move |r| {
-                self.search_radius(r, feature, lookup)
-                    .filter(move |&n| (lookup(n) ^ feature).count_ones() == r)
-            })
+            .map(move |r| self.search_exact(r, feature, lookup))
             .flatten()
+    }
+
+    /// Find all neighbors exactly at a given radius.
+    pub fn search_exact<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        // Get the weight.
+        let sw = feature.count_ones();
+        // See if we can find anything at all at weight - radius.
+        let first = if sw >= radius {
+            Some(u128::from(sw - radius))
+        } else {
+            None
+        };
+        // See if we can find anything at all at weight + radius.
+        let second = if sw <= 128 - radius {
+            Some(u128::from(sw + radius))
+        } else {
+            None
+        };
+        // Iterate over every applicable index in the root.
+        self.bucket_scan(
+            radius,
+            feature,
+            0,
+            lookup,
+            // The index is the `tw` because at the root node indices
+            // are target weights.
+            first.into_iter().chain(second),
+            Self::exact2,
+        )
+    }
+
+    fn exact2<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        tp: u128,
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        let indices = indices128(feature);
+        self.bucket_scan(
+            radius,
+            feature,
+            bucket,
+            lookup,
+            search_exact2(Bits128(indices[0]), Bits64(indices[1]), Bits128(tp), radius)
+                .map(|tc| tc.0),
+            Self::exact4,
+        )
+    }
+
+    fn exact4<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        tp: u128,
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        let indices = indices128(feature);
+        self.bucket_scan(
+            radius,
+            feature,
+            bucket,
+            lookup,
+            search_exact4(Bits64(indices[1]), Bits32(indices[2]), Bits64(tp), radius)
+                .map(|tc| tc.0),
+            Self::exact8,
+        )
+    }
+
+    fn exact8<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        tp: u128,
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        let indices = indices128(feature);
+        self.bucket_scan(
+            radius,
+            feature,
+            bucket,
+            lookup,
+            search_exact8(Bits32(indices[2]), Bits16(indices[3]), Bits32(tp), radius)
+                .map(|tc| tc.0),
+            Self::exact16,
+        )
+    }
+
+    fn exact16<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        tp: u128,
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        let indices = indices128(feature);
+        self.bucket_scan(
+            radius,
+            feature,
+            bucket,
+            lookup,
+            search_exact16(Bits16(indices[3]), Bits8(indices[2]), Bits16(tp), radius)
+                .map(|tc| tc.0),
+            Self::exact32,
+        )
+    }
+
+    fn exact32<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        tp: u128,
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        let indices = indices128(feature);
+        self.bucket_scan(
+            radius,
+            feature,
+            bucket,
+            lookup,
+            search_exact32(Bits8(indices[4]), Bits4(indices[3]), Bits8(tp), radius).map(|tc| tc.0),
+            Self::exact64,
+        )
+    }
+
+    fn exact64<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        tp: u128,
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        let indices = indices128(feature);
+        self.bucket_scan(
+            radius,
+            feature,
+            bucket,
+            lookup,
+            search_exact64(Bits4(indices[5]), Bits2(indices[4]), Bits4(tp), radius).map(|tc| tc.0),
+            Self::exact128,
+        )
+    }
+
+    fn exact128<'a, F: 'a>(
+        &'a self,
+        radius: u32,
+        feature: u128,
+        bucket: usize,
+        tp: u128,
+        lookup: &'a F,
+    ) -> impl Iterator<Item = u32> + 'a
+    where
+        F: Fn(u32) -> u128,
+    {
+        let indices = indices128(feature);
+        self.bucket_scan(
+            radius,
+            feature,
+            bucket,
+            lookup,
+            search_exact128(Bits2(indices[6]), Bits1(indices[5]), Bits2(tp), radius).map(|tc| tc.0),
+            |_, _, _, bucket, _, _| -> Box<dyn Iterator<Item = u32> + 'a> {
+                panic!(
+                    "hwt::Hwt::neighbors128(): it is an error to find an internal node this far down in the tree (bucket: {})", bucket, 
+                )
+            },
+        )
     }
 
     /// Find all neighbors within a given radius.

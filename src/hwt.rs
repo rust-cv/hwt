@@ -1,8 +1,8 @@
 use crate::indices::*;
 use crate::search::*;
-use crate::chf::*;
 use hashbrown::{hash_map::Entry, HashMap};
 use std::cmp::{max, min};
+use swar::*;
 
 /// This threshold determines whether to perform a brute-force search in a bucket
 /// instead of a targeted search if the amount of nodes is less than this number.
@@ -101,9 +101,8 @@ impl Hwt {
                 for leaf in v.into_iter() {
                     let leaf_feature = lookup(leaf);
                     let index = indices128(leaf_feature)[level];
-                    let new_internal = *map
-                        .entry(index)
-                        .or_insert_with(|| self.allocate_internal());
+                    let new_internal =
+                        *map.entry(index).or_insert_with(|| self.allocate_internal());
                     if let Internal::Vec(ref mut v) = self.internals[new_internal as usize] {
                         v.push(leaf);
                     } else {
@@ -143,9 +142,8 @@ impl Hwt {
         // for each layer of the tree.
         let indices = indices128(feature);
         let mut bucket = 0;
-        let mut create_internal = false;
-        let vacant_node;
-        for (i, &node) in indices.into_iter().enumerate() {
+        let mut create_internal = None;
+        for (i, &node) in indices.iter().enumerate() {
             match &mut self.internals[bucket] {
                 Internal::Vec(ref mut v) => {
                     v.push(item);
@@ -162,15 +160,14 @@ impl Hwt {
                             bucket = internal as usize;
                         }
                         Entry::Vacant(_) => {
-                            create_internal = true;
-                            vacant_node = node;
+                            create_internal = Some(node);
                             break;
                         }
                     }
                 }
             }
         }
-        if create_internal {
+        if let Some(vacant_node) = create_internal {
             // Allocate a new internal Vec node.
             let new_internal = self.allocate_internal();
             // Add the item to the new internal Vec.
@@ -216,9 +213,6 @@ impl Hwt {
         // Compute the indices of the buckets and the sizes of the buckets
         // for each layer of the tree.
         let indices = indices128(feature);
-        // The first index in the tree is actually the overall weight of
-        // the whole number.
-        let weight = feature.count_ones() as usize;
         let mut bucket = 0;
         for index in &indices {
             match &self.internals[bucket] {
@@ -267,8 +261,8 @@ impl Hwt {
         // Manually compute the range of `tw` (which is also index)
         // for the root node since it is unique.
         let sw = feature.count_ones() as i32;
-        let start = max(0, sw - radius as i32) as u32;
-        let end = min(128, sw + radius as i32) as u32;
+        let start = max(0, sw - radius as i32) as u128;
+        let end = min(128, sw + radius as i32) as u128;
         // Iterate over every applicable index in the root.
         self.bucket_scan(
             radius,
@@ -277,182 +271,167 @@ impl Hwt {
             lookup,
             // The index is the `tw` because at the root node indices
             // are target weights.
-            (start..=end).map(|tw| (tw as usize, [tw])),
-            Self::neighbors2,
+            start..=end,
+            Self::radius2,
         )
     }
 
-    /// Find all neighbors in a bucket at depth `0` of the tree
-    /// (`-1` is the root) with a hamming distance less or equal to `radius`.
-    fn neighbors2<'a, F: 'a>(
+    fn radius2<'a, F: 'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
-        tws: [u32; 1],
+        tp: u128,
         lookup: &'a F,
     ) -> impl Iterator<Item = u32> + 'a
     where
         F: Fn(u32) -> u128,
     {
-        // The number of bits per substring.
-        const NBITS: u32 = 128 / 2;
+        let indices = indices128(feature);
         self.bucket_scan(
             radius,
             feature,
             bucket,
             lookup,
-            search2(NBITS, feature, tws[0], radius).map(|(index, _, _, tws)| (index, tws)),
-            Self::neighbors4,
+            search_radius2(Bits128(indices[0]), Bits64(indices[1]), Bits128(tp), radius)
+                .map(|(tc, _sod)| tc.0),
+            Self::radius4,
         )
     }
 
-    /// Find all neighbors in a bucket at depth `1` of the tree
-    /// (`-1` is the root) with a hamming distance less or equal to `radius`.
-    fn neighbors4<'a, F: 'a>(
+    fn radius4<'a, F: 'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
-        tws: [u32; 2],
+        tp: u128,
         lookup: &'a F,
     ) -> impl Iterator<Item = u32> + 'a
     where
         F: Fn(u32) -> u128,
     {
-        // The number of bits per substring.
-        const NBITS: u32 = 128 / 4;
+        let indices = indices128(feature);
         self.bucket_scan(
             radius,
             feature,
             bucket,
             lookup,
-            search4(NBITS, feature, tws, radius).map(|(index, _, _, tws)| (index, tws)),
-            Self::neighbors8,
+            search_radius4(Bits64(indices[1]), Bits32(indices[2]), Bits64(tp), radius)
+                .map(|(tc, _sod)| tc.0),
+            Self::radius8,
         )
     }
 
-    /// Find all neighbors in a bucket at depth `2` of the tree
-    /// (`-1` is the root) with a hamming distance less or equal to `radius`.
-    fn neighbors8<'a, F: 'a>(
+    fn radius8<'a, F: 'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
-        tws: [u32; 4],
+        tp: u128,
         lookup: &'a F,
     ) -> impl Iterator<Item = u32> + 'a
     where
         F: Fn(u32) -> u128,
     {
-        // The number of bits per substring.
-        const NBITS: u32 = 128 / 8;
+        let indices = indices128(feature);
         self.bucket_scan(
             radius,
             feature,
             bucket,
             lookup,
-            search8(NBITS, feature, tws, radius).map(|(index, _, _, tws)| (index, tws)),
-            Self::neighbors16,
+            search_radius8(Bits32(indices[2]), Bits16(indices[3]), Bits32(tp), radius)
+                .map(|(tc, _sod)| tc.0),
+            Self::radius16,
         )
     }
 
-    /// Find all neighbors in a bucket at depth `3` of the tree
-    /// (`-1` is the root) with a hamming distance less or equal to `radius`.
-    fn neighbors16<'a, F: 'a>(
+    fn radius16<'a, F: 'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
-        tws: [u32; 8],
+        tp: u128,
         lookup: &'a F,
     ) -> impl Iterator<Item = u32> + 'a
     where
         F: Fn(u32) -> u128,
     {
-        // The number of bits per substring.
-        const NBITS: u32 = 128 / 16;
+        let indices = indices128(feature);
         self.bucket_scan(
             radius,
             feature,
             bucket,
             lookup,
-            search16(NBITS, feature, tws, radius).map(|(index, _, _, tws)| (index, tws)),
-            Self::neighbors32,
+            search_radius16(Bits16(indices[3]), Bits8(indices[2]), Bits16(tp), radius)
+                .map(|(tc, _sod)| tc.0),
+            Self::radius32,
         )
     }
 
-    /// Find all neighbors in a bucket at depth `4` of the tree
-    /// (`-1` is the root) with a hamming distance less or equal to `radius`.
-    fn neighbors32<'a, F: 'a>(
+    fn radius32<'a, F: 'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
-        tws: [u32; 16],
+        tp: u128,
         lookup: &'a F,
     ) -> impl Iterator<Item = u32> + 'a
     where
         F: Fn(u32) -> u128,
     {
-        // The number of bits per substring.
-        const NBITS: u32 = 128 / 32;
+        let indices = indices128(feature);
         self.bucket_scan(
             radius,
             feature,
             bucket,
             lookup,
-            search32(NBITS, feature, tws, radius).map(|(index, _, _, tws)| (index, tws)),
-            Self::neighbors64,
+            search_radius32(Bits8(indices[4]), Bits4(indices[3]), Bits8(tp), radius)
+                .map(|(tc, _sod)| tc.0),
+            Self::radius64,
         )
     }
 
-    /// Find all neighbors in a bucket at depth `5` of the tree
-    /// (`-1` is the root) with a hamming distance less or equal to `radius`.
-    fn neighbors64<'a, F: 'a>(
+    fn radius64<'a, F: 'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
-        tws: [u32; 32],
+        tp: u128,
         lookup: &'a F,
     ) -> impl Iterator<Item = u32> + 'a
     where
         F: Fn(u32) -> u128,
     {
-        // The number of bits per substring.
-        const NBITS: u32 = 128 / 64;
+        let indices = indices128(feature);
         self.bucket_scan(
             radius,
             feature,
             bucket,
             lookup,
-            search64(NBITS, feature, tws, radius).map(|(index, _, _, tws)| (index, tws)),
-            Self::neighbors128,
+            search_radius64(Bits4(indices[5]), Bits2(indices[4]), Bits4(tp), radius)
+                .map(|(tc, _sod)| tc.0),
+            Self::radius128,
         )
     }
 
-    /// Find all neighbors in a bucket at depth `6` of the tree
-    /// (`-1` is the root) with a hamming distance less or equal to `radius`.
-    fn neighbors128<'a, F: 'a>(
+    fn radius128<'a, F: 'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
-        tws: [u32; 64],
+        tp: u128,
         lookup: &'a F,
     ) -> impl Iterator<Item = u32> + 'a
     where
         F: Fn(u32) -> u128,
     {
+        let indices = indices128(feature);
         self.bucket_scan(
             radius,
             feature,
             bucket,
             lookup,
-            search128(feature, tws, radius).map(|index| (index, ())),
-            // We just outright lie about the type there because otherwise
-            // it can't infer the type.
+            search_radius128(Bits2(indices[6]), Bits1(indices[5]), Bits2(tp), radius).map(|(tc, _sod)| tc.0),
             |_, _, _, bucket, _, _| -> Box<dyn Iterator<Item = u32> + 'a> {
                 panic!(
                     "hwt::Hwt::neighbors128(): it is an error to find an internal node this far down in the tree (bucket: {})", bucket, 
@@ -464,19 +443,18 @@ impl Hwt {
     /// Search the given `bucket` with the `indices` iterator, using `subtable`
     /// to recursively iterate over buckets found inside this bucket.
     #[allow(clippy::too_many_arguments)]
-    fn bucket_scan<'a, F: 'a, I: 'a, TWS: 'a>(
+    fn bucket_scan<'a, F: 'a, I: 'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
         lookup: &'a F,
-        indices: impl Iterator<Item = (usize, TWS)> + 'a,
-        subtable: impl Fn(&'a Self, u32, u128, usize, TWS, &'a F) -> I + 'a,
+        indices: impl Iterator<Item = u128> + 'a,
+        subtable: impl Fn(&'a Self, u32, u128, usize, u128, &'a F) -> I + 'a,
     ) -> Box<dyn Iterator<Item = u32> + 'a>
     where
         F: Fn(u32) -> u128,
         I: Iterator<Item = u32>,
-        TWS: Clone,
     {
         match &self.internals[bucket] {
             Internal::Vec(v) => Box::new(
@@ -485,11 +463,11 @@ impl Hwt {
                     .filter(move |&leaf| (lookup(leaf) ^ feature).count_ones() <= radius),
             ) as Box<dyn Iterator<Item = u32> + 'a>,
             Internal::Map(m) => {
-                Box::new(indices.flat_map(move |(index, tws)| {
-                    if let Some(&occupied_node) = m.get(&index) {
+                Box::new(indices.flat_map(move |tc| {
+                    if let Some(&occupied_node) = m.get(&tc) {
                         // The node is an internal.
                         let subbucket = occupied_node as usize;
-                        either::Right(subtable(self, radius, feature, subbucket, tws, lookup))
+                        either::Right(subtable(self, radius, feature, subbucket, tc, lookup))
                     } else {
                         either::Left(None.into_iter())
                     }

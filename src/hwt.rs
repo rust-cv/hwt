@@ -30,10 +30,8 @@ impl Default for Internal {
 }
 
 pub struct Hwt {
-    /// If a `u32` has a high bit set to `1` then it is a leaf node, otherwise it is an internal node.
-    /// A `u32` pointing to an internal node is just an index into the internals array, which is
-    /// just a bump allocator for internal nodes. It is possible to have more than 2^31 entries, but
-    /// 2^31 internal nodes cannot be exceeded.
+    /// A `u32` pointing to an internal node is just an index into the
+    /// internals array, which is just a bump allocator for internal nodes.
     internals: Vec<Internal>,
     count: usize,
 }

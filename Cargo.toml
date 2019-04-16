@@ -16,6 +16,7 @@ either = "1.5.1"
 hashbrown = "0.2.1"
 ahash = "0.1.18"
 swar = "0.2.1"
+log = "0.4.6"
 
 [dev-dependencies]
 criterion = "0.2.10"

@@ -1,4 +1,6 @@
 use hwt::*;
+use rand::rngs::SmallRng;
+use rand::{Rng, SeedableRng};
 
 #[test]
 fn test_neighbors() {
@@ -49,6 +51,32 @@ fn test_neighbors() {
             hwt.search_radius(2, u128::from(feature), &u128::from)
                 .count()
                 < 8128
+        );
+    }
+}
+
+#[test]
+fn compare_to_linear() {
+    let mut rng = SmallRng::from_seed([5; 16]);
+    let space = rng
+        .sample_iter(&rand::distributions::Standard)
+        .take(100_000)
+        .collect::<Vec<u128>>();
+    let search = rng
+        .sample_iter(&rand::distributions::Standard)
+        .take(1000)
+        .collect::<Vec<u128>>();
+    let lookup = |n: u32| space[n as usize];
+    
+    let mut hwt = Hwt::new();
+    for (ix, &f) in space.iter().enumerate() {
+        hwt.insert(f, ix as u32, lookup);
+    }
+
+    for f0 in search {
+        assert_eq!(
+            space.iter().map(|&f1| (f0 ^ f1).count_ones()).min(),
+            hwt.nearest(f0, &lookup).next()
         );
     }
 }

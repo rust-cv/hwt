@@ -519,9 +519,8 @@ impl Hwt {
                 v.iter()
                     .cloned()
                     .filter(move |&leaf| (lookup(leaf) ^ feature).count_ones() == radius),
-            ) as Box<dyn Iterator<Item = u32> + 'a>,
+            ),
             Internal::Map(m) => {
-                let filter_map = move |tc| m.get(&tc).map(|&node| (tc, node));
                 let flat_map = move |(tc, node)| {
                     let subbucket = node as usize;
                     subtable(self, radius, feature, subbucket, tc, lookup)
@@ -531,10 +530,13 @@ impl Hwt {
                         m.iter()
                             .filter(move |&(&key, _)| filter(key))
                             .flat_map(move |(&tc, &node)| flat_map((tc, node))),
-                    ) as Box<dyn Iterator<Item = u32> + 'a>
+                    )
                 } else {
-                    Box::new(indices.filter_map(filter_map).flat_map(flat_map))
-                        as Box<dyn Iterator<Item = u32> + 'a>
+                    Box::new(
+                        indices
+                            .filter_map(move |tc| m.get(&tc).map(|&node| (tc, node)))
+                            .flat_map(flat_map),
+                    )
                 }
             }
         }
@@ -767,9 +769,8 @@ impl Hwt {
                 v.iter()
                     .cloned()
                     .filter(move |&leaf| (lookup(leaf) ^ feature).count_ones() <= radius),
-            ) as Box<dyn Iterator<Item = u32> + 'a>,
+            ),
             Internal::Map(m) => {
-                let filter_map = move |tc| m.get(&tc).map(|&node| (tc, node));
                 let flat_map = move |(tc, node)| {
                     let subbucket = node as usize;
                     subtable(self, radius, feature, subbucket, tc, lookup)
@@ -779,10 +780,13 @@ impl Hwt {
                         m.iter()
                             .filter(move |&(&key, _)| filter(key))
                             .flat_map(move |(&tc, &node)| flat_map((tc, node))),
-                    ) as Box<dyn Iterator<Item = u32> + 'a>
+                    )
                 } else {
-                    Box::new(indices.filter_map(filter_map).flat_map(flat_map))
-                        as Box<dyn Iterator<Item = u32> + 'a>
+                    Box::new(
+                        indices
+                            .filter_map(move |tc| m.get(&tc).map(|&node| (tc, node)))
+                            .flat_map(flat_map),
+                    )
                 }
             }
         }

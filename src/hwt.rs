@@ -508,6 +508,12 @@ impl Hwt {
         F: Fn(u32) -> u128,
         I: Iterator<Item = u32>,
     {
+        trace!(
+            "bucket_scan_exact feature({:032X}) radius({}) bucket({})",
+            feature,
+            radius,
+            bucket,
+        );
         match &self.internals[bucket] {
             Internal::Vec(v) => Box::new(
                 v.iter()
@@ -515,22 +521,20 @@ impl Hwt {
                     .filter(move |&leaf| (lookup(leaf) ^ feature).count_ones() == radius),
             ) as Box<dyn Iterator<Item = u32> + 'a>,
             Internal::Map(m) => {
+                let filter_map = move |tc| m.get(&tc).map(|&node| (tc, node));
+                let flat_map = move |(tc, node)| {
+                    let subbucket = node as usize;
+                    subtable(self, radius, feature, subbucket, tc, lookup)
+                };
                 if m.len() < TAU {
                     Box::new(
                         m.iter()
                             .filter(move |&(&key, _)| filter(key))
-                            .map(|(_, &node)| node),
+                            .flat_map(move |(&tc, &node)| flat_map((tc, node))),
                     ) as Box<dyn Iterator<Item = u32> + 'a>
                 } else {
-                    Box::new(indices.flat_map(move |tc| {
-                        if let Some(&occupied_node) = m.get(&tc) {
-                            // The node is an internal.
-                            let subbucket = occupied_node as usize;
-                            either::Right(subtable(self, radius, feature, subbucket, tc, lookup))
-                        } else {
-                            either::Left(None.into_iter())
-                        }
-                    })) as Box<dyn Iterator<Item = u32> + 'a>
+                    Box::new(indices.filter_map(filter_map).flat_map(flat_map))
+                        as Box<dyn Iterator<Item = u32> + 'a>
                 }
             }
         }
@@ -752,6 +756,12 @@ impl Hwt {
         F: Fn(u32) -> u128,
         I: Iterator<Item = u32>,
     {
+        trace!(
+            "bucket_scan_radius feature({:032X}) radius({}) bucket({})",
+            feature,
+            radius,
+            bucket,
+        );
         match &self.internals[bucket] {
             Internal::Vec(v) => Box::new(
                 v.iter()
@@ -759,22 +769,20 @@ impl Hwt {
                     .filter(move |&leaf| (lookup(leaf) ^ feature).count_ones() <= radius),
             ) as Box<dyn Iterator<Item = u32> + 'a>,
             Internal::Map(m) => {
+                let filter_map = move |tc| m.get(&tc).map(|&node| (tc, node));
+                let flat_map = move |(tc, node)| {
+                    let subbucket = node as usize;
+                    subtable(self, radius, feature, subbucket, tc, lookup)
+                };
                 if m.len() < TAU {
                     Box::new(
                         m.iter()
                             .filter(move |&(&key, _)| filter(key))
-                            .map(|(_, &node)| node),
+                            .flat_map(move |(&tc, &node)| flat_map((tc, node))),
                     ) as Box<dyn Iterator<Item = u32> + 'a>
                 } else {
-                    Box::new(indices.flat_map(move |tc| {
-                        if let Some(&occupied_node) = m.get(&tc) {
-                            // The node is an internal.
-                            let subbucket = occupied_node as usize;
-                            either::Right(subtable(self, radius, feature, subbucket, tc, lookup))
-                        } else {
-                            either::Left(None.into_iter())
-                        }
-                    })) as Box<dyn Iterator<Item = u32> + 'a>
+                    Box::new(indices.filter_map(filter_map).flat_map(flat_map))
+                        as Box<dyn Iterator<Item = u32> + 'a>
                 }
             }
         }

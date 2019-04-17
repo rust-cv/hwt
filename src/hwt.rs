@@ -1,6 +1,7 @@
 use crate::indices::*;
 use crate::search::*;
 use hashbrown::{hash_map::Entry, HashMap};
+use log::trace;
 use std::cmp::{max, min};
 use swar::*;
 
@@ -239,6 +240,7 @@ impl Hwt {
     where
         F: Fn(u32) -> u128,
     {
+        trace!("nearest feature({:032X})", feature);
         (0..=128)
             .map(move |r| self.search_exact(r, feature, lookup))
             .flatten()
@@ -254,6 +256,7 @@ impl Hwt {
     where
         F: Fn(u32) -> u128,
     {
+        trace!("search_exact feature({:032X}) radius({})", feature, radius,);
         let indices = indices128(feature);
         let sw = indices[0] as i32;
         let start = max(0, sw - radius as i32) as u128;
@@ -281,6 +284,13 @@ impl Hwt {
     where
         F: Fn(u32) -> u128,
     {
+        trace!(
+            "exact2 feature({:032X}) radius({}) bucket({}) tp({:032X})",
+            feature,
+            radius,
+            bucket,
+            tp
+        );
         let indices = indices128(feature);
         self.bucket_scan_exact(
             radius,
@@ -305,6 +315,13 @@ impl Hwt {
     where
         F: Fn(u32) -> u128,
     {
+        trace!(
+            "exact4 feature({:032X}) radius({}) bucket({}) tp({:032X})",
+            feature,
+            radius,
+            bucket,
+            tp
+        );
         let indices = indices128(feature);
         self.bucket_scan_exact(
             radius,
@@ -329,6 +346,13 @@ impl Hwt {
     where
         F: Fn(u32) -> u128,
     {
+        trace!(
+            "exact8 feature({:032X}) radius({}) bucket({}) tp({:032X})",
+            feature,
+            radius,
+            bucket,
+            tp
+        );
         let indices = indices128(feature);
         self.bucket_scan_exact(
             radius,
@@ -353,6 +377,13 @@ impl Hwt {
     where
         F: Fn(u32) -> u128,
     {
+        trace!(
+            "exact16 feature({:032X}) radius({}) bucket({}) tp({:032X})",
+            feature,
+            radius,
+            bucket,
+            tp
+        );
         let indices = indices128(feature);
         self.bucket_scan_exact(
             radius,
@@ -377,6 +408,13 @@ impl Hwt {
     where
         F: Fn(u32) -> u128,
     {
+        trace!(
+            "exact32 feature({:032X}) radius({}) bucket({}) tp({:032X})",
+            feature,
+            radius,
+            bucket,
+            tp
+        );
         let indices = indices128(feature);
         self.bucket_scan_exact(
             radius,
@@ -400,6 +438,13 @@ impl Hwt {
     where
         F: Fn(u32) -> u128,
     {
+        trace!(
+            "exact64 feature({:032X}) radius({}) bucket({}) tp({:032X})",
+            feature,
+            radius,
+            bucket,
+            tp
+        );
         let indices = indices128(feature);
         self.bucket_scan_exact(
             radius,
@@ -423,6 +468,13 @@ impl Hwt {
     where
         F: Fn(u32) -> u128,
     {
+        trace!(
+            "exact128 feature({:032X}) radius({}) bucket({}) tp({:032X})",
+            feature,
+            radius,
+            bucket,
+            tp
+        );
         let indices = indices128(feature);
         self.bucket_scan_exact(
             radius,

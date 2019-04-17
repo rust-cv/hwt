@@ -1,6 +1,9 @@
+use chrono::Utc;
 use hwt::*;
+use log::LevelFilter;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
+use std::path::PathBuf;
 
 #[test]
 fn test_neighbors() {
@@ -56,7 +59,15 @@ fn test_neighbors() {
 }
 
 #[test]
-fn compare_to_linear() {
+fn compare_to_linear() -> std::io::Result<()> {
+    // Start logging.
+    let now = Utc::now();
+    let log_dir = PathBuf::from("target").join("logs");
+    std::fs::create_dir_all(&log_dir)?;
+    let log_file = log_dir.join(now.format("%Z_%F_%H-%M-%S.txt").to_string());
+    eprintln!("logging in {}", log_file.display());
+    simple_logging::log_to_file(&log_file, LevelFilter::Trace)?;
+
     let mut rng = SmallRng::from_seed([5; 16]);
     let space = rng
         .sample_iter(&rand::distributions::Standard)
@@ -67,7 +78,7 @@ fn compare_to_linear() {
         .take(1000)
         .collect::<Vec<u128>>();
     let lookup = |n: u32| space[n as usize];
-    
+
     let mut hwt = Hwt::new();
     for (ix, &f) in space.iter().enumerate() {
         hwt.insert(f, ix as u32, lookup);
@@ -75,8 +86,14 @@ fn compare_to_linear() {
 
     for f0 in search {
         assert_eq!(
-            space.iter().map(|&f1| (f0 ^ f1).count_ones()).min(),
+            space
+                .iter()
+                .enumerate()
+                .min_by_key(|(_, &f1)| (f0 ^ f1).count_ones())
+                .map(|(ix, _)| ix as u32),
             hwt.nearest(f0, &lookup).next()
         );
     }
+
+    Ok(())
 }

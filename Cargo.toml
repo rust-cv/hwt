@@ -16,11 +16,15 @@ either = "1.5.1"
 hashbrown = "0.2.1"
 ahash = "0.1.18"
 swar = "0.2.1"
-log = "0.4.6"
+log = {version = "0.4.6", features = ["max_level_trace", "release_max_level_warn"]}
 
 [dev-dependencies]
 criterion = "0.2.10"
 rand = "0.6.5"
+# Enable trace when testing unless benchmarking, then only include warn.
+log = {version = "0.4.6", features = ["max_level_trace", "release_max_level_warn"]}
+simple-logging = "2.0.2"
+chrono = "0.4.6"
 
 [[bench]]
 name = "benches"

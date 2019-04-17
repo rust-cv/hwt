@@ -501,7 +501,7 @@ impl Hwt {
         bucket: usize,
         lookup: &'a F,
         indices: impl Iterator<Item = u128> + 'a,
-        subtable: impl Fn(&'a Self, u32, u128, usize, u128, &'a F) -> I + 'a,
+        subtable: fn(&'a Self, u32, u128, usize, u128, &'a F) -> I,
         filter: impl Fn(u128) -> bool + 'a,
     ) -> Box<dyn Iterator<Item = u32> + 'a>
     where
@@ -521,21 +521,19 @@ impl Hwt {
                     .filter(move |&leaf| (lookup(leaf) ^ feature).count_ones() == radius),
             ),
             Internal::Map(m) => {
-                let flat_map = move |(tc, node)| {
-                    let subbucket = node as usize;
-                    subtable(self, radius, feature, subbucket, tc, lookup)
-                };
                 if m.len() < TAU {
-                    Box::new(
-                        m.iter()
-                            .filter(move |&(&key, _)| filter(key))
-                            .flat_map(move |(&tc, &node)| flat_map((tc, node))),
-                    )
+                    Box::new(m.iter().filter(move |&(&key, _)| filter(key)).flat_map(
+                        move |(&tc, &node)| {
+                            subtable(self, radius, feature, node as usize, tc, lookup)
+                        },
+                    ))
                 } else {
                     Box::new(
                         indices
                             .filter_map(move |tc| m.get(&tc).map(|&node| (tc, node)))
-                            .flat_map(flat_map),
+                            .flat_map(move |(tc, node)| {
+                                subtable(self, radius, feature, node as usize, tc, lookup)
+                            }),
                     )
                 }
             }
@@ -751,7 +749,7 @@ impl Hwt {
         bucket: usize,
         lookup: &'a F,
         indices: impl Iterator<Item = u128> + 'a,
-        subtable: impl Fn(&'a Self, u32, u128, usize, u128, &'a F) -> I + 'a,
+        subtable: fn(&'a Self, u32, u128, usize, u128, &'a F) -> I,
         filter: impl Fn(u128) -> bool + 'a,
     ) -> Box<dyn Iterator<Item = u32> + 'a>
     where
@@ -771,21 +769,19 @@ impl Hwt {
                     .filter(move |&leaf| (lookup(leaf) ^ feature).count_ones() <= radius),
             ),
             Internal::Map(m) => {
-                let flat_map = move |(tc, node)| {
-                    let subbucket = node as usize;
-                    subtable(self, radius, feature, subbucket, tc, lookup)
-                };
                 if m.len() < TAU {
                     Box::new(
                         m.iter()
                             .filter(move |&(&key, _)| filter(key))
-                            .flat_map(move |(&tc, &node)| flat_map((tc, node))),
+                            .flat_map(move |(&tc, &node)| subtable(self, radius, feature, node as usize, tc, lookup)),
                     )
                 } else {
                     Box::new(
                         indices
                             .filter_map(move |tc| m.get(&tc).map(|&node| (tc, node)))
-                            .flat_map(flat_map),
+                            .flat_map(move |(tc, node)| {
+                                subtable(self, radius, feature, node as usize, tc, lookup)
+                            }),
                     )
                 }
             }

@@ -88,10 +88,9 @@ fn compare_to_linear() -> std::io::Result<()> {
         assert_eq!(
             space
                 .iter()
-                .enumerate()
-                .min_by_key(|(_, &f1)| (f0 ^ f1).count_ones())
-                .map(|(ix, _)| ix as u32),
-            hwt.nearest(f0, &lookup).next()
+                .map(|&f1| (f0 ^ f1).count_ones())
+                .min(),
+            hwt.nearest(f0, &lookup).next().map(|n| (lookup(n) ^ f0).count_ones())
         );
     }
 

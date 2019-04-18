@@ -242,8 +242,7 @@ impl Hwt {
     {
         trace!("nearest feature({:032X})", feature);
         (0..=128)
-            .map(move |r| self.search_exact(r, feature, lookup))
-            .flatten()
+            .flat_map(move |r| self.search_exact(r, feature, lookup))
     }
 
     /// Find all neighbors exactly at a given radius.
@@ -267,7 +266,7 @@ impl Hwt {
             feature,
             0,
             lookup,
-            start..=end,
+            Box::new(start..=end),
             Self::exact2,
             move |tc| Bits64(tc).hwd(Bits64(indices[1])).sum_weight() as u32 == radius,
         )
@@ -297,8 +296,8 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_exact2(Bits128(indices[0]), Bits64(indices[1]), Bits128(tp), radius)
-                .map(|tc| tc.0),
+            Box::new(search_exact2(Bits128(indices[0]), Bits64(indices[1]), Bits128(tp), radius)
+                .map(|tc| tc.0)),
             Self::exact4,
             move |tc| Bits32(tc).hwd(Bits32(indices[2])).sum_weight() as u32 == radius,
         )
@@ -328,8 +327,8 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_exact4(Bits64(indices[1]), Bits32(indices[2]), Bits64(tp), radius)
-                .map(|tc| tc.0),
+            Box::new(search_exact4(Bits64(indices[1]), Bits32(indices[2]), Bits64(tp), radius)
+                .map(|tc| tc.0)),
             Self::exact8,
             move |tc| Bits16(tc).hwd(Bits16(indices[3])).sum_weight() as u32 == radius,
         )
@@ -359,8 +358,8 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_exact8(Bits32(indices[2]), Bits16(indices[3]), Bits32(tp), radius)
-                .map(|tc| tc.0),
+            Box::new(search_exact8(Bits32(indices[2]), Bits16(indices[3]), Bits32(tp), radius)
+                .map(|tc| tc.0)),
             Self::exact16,
             move |tc| Bits8(tc).hwd(Bits8(indices[4])).sum_weight() as u32 == radius,
         )
@@ -390,8 +389,8 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_exact16(Bits16(indices[3]), Bits8(indices[4]), Bits16(tp), radius)
-                .map(|tc| tc.0),
+            Box::new(search_exact16(Bits16(indices[3]), Bits8(indices[4]), Bits16(tp), radius)
+                .map(|tc| tc.0)),
             Self::exact32,
             move |tc| Bits4(tc).hwd(Bits4(indices[5])).sum_weight() as u32 == radius,
         )
@@ -421,7 +420,7 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_exact32(Bits8(indices[4]), Bits4(indices[5]), Bits8(tp), radius).map(|tc| tc.0),
+            Box::new(search_exact32(Bits8(indices[4]), Bits4(indices[5]), Bits8(tp), radius).map(|tc| tc.0)),
             Self::exact64,
             move |tc| Bits2(tc).hwd(Bits2(indices[6])).sum_weight() as u32 == radius,
         )
@@ -451,7 +450,7 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_exact64(Bits4(indices[5]), Bits2(indices[6]), Bits4(tp), radius).map(|tc| tc.0),
+            Box::new(search_exact64(Bits4(indices[5]), Bits2(indices[6]), Bits4(tp), radius).map(|tc| tc.0)),
             Self::exact128,
             move |tc| Bits1(tc).hwd(Bits1(indices[7])).sum_weight() as u32 == radius,
         )
@@ -481,7 +480,7 @@ impl Hwt {
             feature,
             bucket,
             lookup,
-            search_exact128(Bits2(indices[6]), Bits1(indices[7]), Bits2(tp), radius).map(|tc| tc.0),
+            Box::new(search_exact128(Bits2(indices[6]), Bits1(indices[7]), Bits2(tp), radius).map(|tc| tc.0)),
             |_, _, _, bucket, _, _| -> Box<dyn Iterator<Item = u32> + 'a> {
                 panic!(
                     "hwt::Hwt::neighbors128(): it is an error to find an internal node this far down in the tree (bucket: {})", bucket, 
@@ -500,7 +499,7 @@ impl Hwt {
         feature: u128,
         bucket: usize,
         lookup: &'a F,
-        indices: impl Iterator<Item = u128> + 'a,
+        indices: Box<dyn Iterator<Item = u128> + 'a>,
         subtable: fn(&'a Self, u32, u128, usize, u128, &'a F) -> I,
         filter: impl Fn(u128) -> bool + 'a,
     ) -> Box<dyn Iterator<Item = u32> + 'a>

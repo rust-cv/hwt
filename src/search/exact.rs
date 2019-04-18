@@ -14,14 +14,16 @@ pub fn search_exact128(
     sc: Bits1<u128>,
     tp: Bits2<u128>,
     radius: u32,
-) -> impl Iterator<Item = Bits1<u128>> {
+) -> Box<dyn Iterator<Item = Bits1<u128>>> {
     let (lsp, rsp) = sp.halve();
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
 
-    search_radius64(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-        search_exact64(rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits1::union(ltc, rtc))
-    })
+    Box::new(
+        search_radius64(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+            search_exact64(rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits1::union(ltc, rtc))
+        }),
+    )
 }
 
 /// Gets all the possible offsets in a feature that maintain a particular
@@ -37,14 +39,16 @@ pub fn search_exact64(
     sc: Bits2<u128>,
     tp: Bits4<u128>,
     radius: u32,
-) -> impl Iterator<Item = Bits2<u128>> {
+) -> Box<dyn Iterator<Item = Bits2<u128>>> {
     let (lsp, rsp) = sp.halve();
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
 
-    search_radius32(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-        search_exact32(rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits2::union(ltc, rtc))
-    })
+    Box::new(
+        search_radius32(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+            search_exact32(rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits2::union(ltc, rtc))
+        }),
+    )
 }
 
 /// Gets all the possible offsets in a feature that maintain a particular
@@ -60,14 +64,16 @@ pub fn search_exact32(
     sc: Bits4<u128>,
     tp: Bits8<u128>,
     radius: u32,
-) -> impl Iterator<Item = Bits4<u128>> {
+) -> Box<dyn Iterator<Item = Bits4<u128>>> {
     let (lsp, rsp) = sp.halve();
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
 
-    search_radius16(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-        search_exact16(rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits4::union(ltc, rtc))
-    })
+    Box::new(
+        search_radius16(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+            search_exact16(rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits4::union(ltc, rtc))
+        }),
+    )
 }
 
 /// Gets all the possible offsets in a feature that maintain a particular
@@ -83,14 +89,16 @@ pub fn search_exact16(
     sc: Bits8<u128>,
     tp: Bits16<u128>,
     radius: u32,
-) -> impl Iterator<Item = Bits8<u128>> {
+) -> Box<dyn Iterator<Item = Bits8<u128>>> {
     let (lsp, rsp) = sp.halve();
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
 
-    search_radius8(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-        search_exact8(rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits8::union(ltc, rtc))
-    })
+    Box::new(
+        search_radius8(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+            search_exact8(rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits8::union(ltc, rtc))
+        }),
+    )
 }
 
 /// Gets all the possible offsets in a feature that maintain a particular

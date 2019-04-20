@@ -16,12 +16,12 @@ use swar::*;
 const TAU: usize = 1024;
 
 /// This determines how much space is initially allocated for a leaf vector.
-const INITIAL_CAPACITY: usize = 16;
+const INITIAL_CAPACITY: usize = 4;
 
 #[derive(Debug)]
 enum Internal {
-    /// This always contains leaves.
-    Vec(Vec<u32>),
+    /// This always contains features.
+    Vec(Vec<u128>),
     /// This always points to another internal node.
     Map(HashMap<u128, u32, std::hash::BuildHasherDefault<ahash::AHasher>>),
 }
@@ -30,13 +30,6 @@ impl Default for Internal {
     fn default() -> Self {
         Internal::Vec(Vec::with_capacity(INITIAL_CAPACITY))
     }
-}
-
-/// Contains a neighbor found in radius or nearest search.
-#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Neighbor {
-    pub index: u32,
-    pub distance: u32,
 }
 
 pub struct Hwt {
@@ -63,7 +56,7 @@ impl Hwt {
     /// ```
     /// # use hwt::Hwt;
     /// let mut hwt = Hwt::new();
-    /// hwt.insert(0b101, 0, |_| 0b010);
+    /// hwt.insert(0b101);
     /// assert_eq!(hwt.len(), 1);
     /// ```
     pub fn len(&self) -> usize {
@@ -76,7 +69,7 @@ impl Hwt {
     /// # use hwt::Hwt;
     /// let mut hwt = Hwt::new();
     /// assert!(hwt.is_empty());
-    /// hwt.insert(0b101, 0, |_| 0b010);
+    /// hwt.insert(0b101);
     /// assert!(!hwt.is_empty());
     /// ```
     pub fn is_empty(&self) -> bool {
@@ -94,11 +87,7 @@ impl Hwt {
     ///
     /// `internal` must be the internal node index which should be replaced
     /// `level` must be set from 0 to 7 inclusive. If it is 0, this is the root.
-    /// `lookup` must allow looking up the feature of leaves.
-    fn convert<F>(&mut self, internal: usize, level: usize, mut lookup: F)
-    where
-        F: FnMut(u32) -> u128,
-    {
+    fn convert(&mut self, internal: usize, level: usize) {
         // Swap a temporary vec with the one in the store to avoid the wrath of the borrow checker.
         let mut old_vec = Internal::Vec(Vec::new());
         std::mem::swap(&mut self.internals[internal], &mut old_vec);
@@ -106,13 +95,12 @@ impl Hwt {
         self.internals[internal] = match old_vec {
             Internal::Vec(v) => {
                 let mut map = HashMap::default();
-                for leaf in v.into_iter() {
-                    let leaf_feature = lookup(leaf);
-                    let index = indices128(leaf_feature)[level];
+                for feature in v.into_iter() {
+                    let index = indices128(feature)[level];
                     let new_internal =
                         *map.entry(index).or_insert_with(|| self.allocate_internal());
                     if let Internal::Vec(ref mut v) = self.internals[new_internal as usize] {
-                        v.push(leaf);
+                        v.push(feature);
                     } else {
                         unreachable!(
                             "cannot have InternalStore::Map in subtable when just created"
@@ -136,14 +124,11 @@ impl Hwt {
     /// ```
     /// # use hwt::Hwt;
     /// let mut hwt = Hwt::new();
-    /// hwt.insert(0b101, 0, |_| 0b010);
-    /// hwt.insert(0b010, 1, |_| 0b101);
+    /// hwt.insert(0b101);
+    /// hwt.insert(0b010);
     /// assert_eq!(hwt.len(), 2);
     /// ```
-    pub fn insert<F>(&mut self, feature: u128, item: u32, mut lookup: F)
-    where
-        F: FnMut(u32) -> u128,
-    {
+    pub fn insert(&mut self, feature: u128) {
         // No matter what we will insert the item, so increase the count now.
         self.count += 1;
         // Compute the indices of the buckets and the sizes of the buckets
@@ -154,9 +139,9 @@ impl Hwt {
         for (i, &node) in indices.iter().enumerate() {
             match &mut self.internals[bucket] {
                 Internal::Vec(ref mut v) => {
-                    v.push(item);
+                    v.push(feature);
                     if v.len() > TAU {
-                        self.convert(bucket, i, &mut lookup);
+                        self.convert(bucket, i);
                     }
                     return;
                 }
@@ -180,7 +165,7 @@ impl Hwt {
             let new_internal = self.allocate_internal();
             // Add the item to the new internal Vec.
             if let Internal::Vec(ref mut v) = self.internals[new_internal as usize] {
-                v.push(item);
+                v.push(feature);
             } else {
                 unreachable!("cannot have InternalStore::Map in subtable when just created");
             }
@@ -193,48 +178,42 @@ impl Hwt {
         } else {
             // We are just adding this item to the bottom of the tree in a Vec.
             match self.internals[bucket] {
-                Internal::Vec(ref mut v) => v.push(item),
+                Internal::Vec(ref mut v) => v.push(feature),
                 _ => panic!("Can't have InternalStore::Map at bottom of tree"),
             }
         }
     }
 
-    /// Looks up an item ID from the `Hwt`.
-    ///
-    /// Returns `Some(t)` if item `t` was in the `Hwt`, otherwise `None`.
+    /// Checks if a feature is in the `Hwt`.
     ///
     /// ```
     /// # use hwt::Hwt;
     /// let mut hwt = Hwt::new();
-    /// let lookup = |n| match n { 0 => 0b101, 1 => 0b010, _ => panic!() };
-    /// hwt.insert(0b101, 0, lookup);
-    /// hwt.insert(0b010, 1, lookup);
-    /// assert_eq!(hwt.get(0b101, lookup), Some(0));
-    /// assert_eq!(hwt.get(0b010, lookup), Some(1));
-    /// assert_eq!(hwt.get(0b000, lookup), None);
-    /// assert_eq!(hwt.get(0b111, lookup), None);
+    /// hwt.insert(0b101);
+    /// hwt.insert(0b010);
+    /// assert!(hwt.contains(0b101));
+    /// assert!(hwt.contains(0b010));
+    /// assert!(!hwt.contains(0b000));
+    /// assert!(!hwt.contains(0b111));
     /// ```
-    pub fn get<F>(&mut self, feature: u128, mut lookup: F) -> Option<u32>
-    where
-        F: FnMut(u32) -> u128,
-    {
+    pub fn contains(&mut self, feature: u128) -> bool {
         // Compute the indices of the buckets and the sizes of the buckets
         // for each layer of the tree.
         let indices = indices128(feature);
         let mut bucket = 0;
         for index in &indices {
             match &self.internals[bucket] {
-                Internal::Vec(vec) => return vec.iter().cloned().find(|&n| lookup(n) == feature),
+                Internal::Vec(vec) => return vec.iter().cloned().any(|n| n == feature),
                 Internal::Map(map) => {
                     if let Some(&occupied_node) = map.get(index) {
                         bucket = occupied_node as usize;
                     } else {
-                        return None;
+                        return false;
                     }
                 }
             }
         }
-        None
+        false
     }
 
     /// Find the nearest neighbors to a feature. This will give the nearest
@@ -243,15 +222,7 @@ impl Hwt {
     /// feature for a given leaf index.
     ///
     /// Returns the slice of filled neighbors. It may not consume all of `dest`.
-    pub fn nearest<'a, F>(
-        &self,
-        feature: u128,
-        dest: &'a mut [Neighbor],
-        lookup: F,
-    ) -> &'a mut [Neighbor]
-    where
-        F: Fn(u32) -> u128,
-    {
+    pub fn nearest<'a>(&self, feature: u128, dest: &'a mut [u128]) -> &'a mut [u128] {
         trace!(
             "nearest feature({:032X}) weight({})",
             feature,
@@ -263,22 +234,16 @@ impl Hwt {
             Some(n) => n,
             None => return dest,
         };
-        let lookup_distance = |index| (lookup(index) ^ feature).count_ones();
+        let lookup_distance = |leaf: u128| (leaf ^ feature).count_ones();
         // Expand the root node.
         let mut node_queue = NodeQueue::new(match &self.internals[0] {
             Internal::Vec(v) => {
                 trace!("nearest sole leaf node len({})", v.len());
-                let mut v: Vec<Neighbor> = v
-                    .iter()
-                    .map(|&index| Neighbor {
-                        index,
-                        distance: lookup_distance(index),
-                    })
-                    .collect();
+                let mut v = v.clone();
                 // TODO: Benchmark sorting by cached key as well since
                 // the performance of a small hamming weight tree is actually
                 // quite relevant in many scenarios (matching two views).
-                v.sort_unstable_by_key(move |a| a.distance);
+                v.sort_unstable_by_key(|&a| lookup_distance(a));
                 let final_len = std::cmp::min(destlen, v.len());
                 for (d, s) in dest.iter_mut().zip(v) {
                     *d = s;
@@ -308,29 +273,13 @@ impl Hwt {
                     // We will accumulate the minimum leaf distance over `distance`
                     // into this variable so we know when to search this leaf again.
                     let mut min_over_distance = 129;
-                    for leaf in v
-                        .iter()
-                        .map(|&index| Neighbor {
-                            index,
-                            distance: lookup_distance(index),
-                        })
-                        .inspect(
-                            |&Neighbor {
-                                 distance: leaf_distance,
-                                 ..
-                             }| {
-                                if leaf_distance < min_over_distance && leaf_distance > distance {
-                                    min_over_distance = leaf_distance;
-                                }
-                            },
-                        )
-                        .filter(
-                            |&Neighbor {
-                                 distance: leaf_distance,
-                                 ..
-                             }| leaf_distance == distance,
-                        )
-                    {
+                    for leaf in v.iter().cloned().filter(|&other| {
+                        let leaf_distance = lookup_distance(other);
+                        if leaf_distance < min_over_distance && leaf_distance > distance {
+                            min_over_distance = leaf_distance;
+                        }
+                        leaf_distance == distance
+                    }) {
                         *next = leaf;
                         match remaining.split_first_mut() {
                             Some((new_next, new_remaining)) => {
@@ -459,15 +408,11 @@ impl Hwt {
     }
 
     /// Find all neighbors within a given radius.
-    pub fn search_radius<'a, F: 'a>(
+    pub fn search_radius<'a>(
         &'a self,
         radius: u32,
         feature: u128,
-        lookup: &'a F,
-    ) -> impl Iterator<Item = u32> + 'a
-    where
-        F: Fn(u32) -> u128,
-    {
+    ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
         let sw = indices[0] as i32;
         let start = max(0, sw - radius as i32) as u128;
@@ -476,9 +421,7 @@ impl Hwt {
         self.bucket_scan_radius(
             radius,
             feature,
-            0,
-            lookup,
-            // The index is the `tw` because at the root node indices
+            0, // The index is the `tw` because at the root node indices
             // are target weights.
             start..=end,
             Self::radius2,
@@ -486,23 +429,18 @@ impl Hwt {
         )
     }
 
-    fn radius2<'a, F: 'a>(
+    fn radius2<'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
         tp: u128,
-        lookup: &'a F,
-    ) -> impl Iterator<Item = u32> + 'a
-    where
-        F: Fn(u32) -> u128,
-    {
+    ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
         self.bucket_scan_radius(
             radius,
             feature,
             bucket,
-            lookup,
             search_radius2(Bits128(indices[0]), Bits64(indices[1]), Bits128(tp), radius)
                 .map(|(tc, _sod)| tc.0),
             Self::radius4,
@@ -510,23 +448,18 @@ impl Hwt {
         )
     }
 
-    fn radius4<'a, F: 'a>(
+    fn radius4<'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
         tp: u128,
-        lookup: &'a F,
-    ) -> impl Iterator<Item = u32> + 'a
-    where
-        F: Fn(u32) -> u128,
-    {
+    ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
         self.bucket_scan_radius(
             radius,
             feature,
             bucket,
-            lookup,
             search_radius4(Bits64(indices[1]), Bits32(indices[2]), Bits64(tp), radius)
                 .map(|(tc, _sod)| tc.0),
             Self::radius8,
@@ -534,23 +467,18 @@ impl Hwt {
         )
     }
 
-    fn radius8<'a, F: 'a>(
+    fn radius8<'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
         tp: u128,
-        lookup: &'a F,
-    ) -> impl Iterator<Item = u32> + 'a
-    where
-        F: Fn(u32) -> u128,
-    {
+    ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
         self.bucket_scan_radius(
             radius,
             feature,
             bucket,
-            lookup,
             search_radius8(Bits32(indices[2]), Bits16(indices[3]), Bits32(tp), radius)
                 .map(|(tc, _sod)| tc.0),
             Self::radius16,
@@ -558,23 +486,18 @@ impl Hwt {
         )
     }
 
-    fn radius16<'a, F: 'a>(
+    fn radius16<'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
         tp: u128,
-        lookup: &'a F,
-    ) -> impl Iterator<Item = u32> + 'a
-    where
-        F: Fn(u32) -> u128,
-    {
+    ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
         self.bucket_scan_radius(
             radius,
             feature,
             bucket,
-            lookup,
             search_radius16(Bits16(indices[3]), Bits8(indices[4]), Bits16(tp), radius)
                 .map(|(tc, _sod)| tc.0),
             Self::radius32,
@@ -582,23 +505,18 @@ impl Hwt {
         )
     }
 
-    fn radius32<'a, F: 'a>(
+    fn radius32<'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
         tp: u128,
-        lookup: &'a F,
-    ) -> impl Iterator<Item = u32> + 'a
-    where
-        F: Fn(u32) -> u128,
-    {
+    ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
         self.bucket_scan_radius(
             radius,
             feature,
             bucket,
-            lookup,
             search_radius32(Bits8(indices[4]), Bits4(indices[5]), Bits8(tp), radius)
                 .map(|(tc, _sod)| tc.0),
             Self::radius64,
@@ -606,23 +524,18 @@ impl Hwt {
         )
     }
 
-    fn radius64<'a, F: 'a>(
+    fn radius64<'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
         tp: u128,
-        lookup: &'a F,
-    ) -> impl Iterator<Item = u32> + 'a
-    where
-        F: Fn(u32) -> u128,
-    {
+    ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
         self.bucket_scan_radius(
             radius,
             feature,
             bucket,
-            lookup,
             search_radius64(Bits4(indices[5]), Bits2(indices[6]), Bits4(tp), radius)
                 .map(|(tc, _sod)| tc.0),
             Self::radius128,
@@ -630,25 +543,20 @@ impl Hwt {
         )
     }
 
-    fn radius128<'a, F: 'a>(
+    fn radius128<'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
         tp: u128,
-        lookup: &'a F,
-    ) -> impl Iterator<Item = u32> + 'a
-    where
-        F: Fn(u32) -> u128,
-    {
+    ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
         self.bucket_scan_radius(
             radius,
             feature,
             bucket,
-            lookup,
             search_radius128(Bits2(indices[6]), Bits1(indices[7]), Bits2(tp), radius).map(|(tc, _sod)| tc.0),
-            |_, _, _, bucket, _, _| -> Box<dyn Iterator<Item = u32> + 'a> {
+            |_, _, _, bucket, _| -> Box<dyn Iterator<Item = u128> + 'a> {
                 panic!(
                     "hwt::Hwt::neighbors128(): it is an error to find an internal node this far down in the tree (bucket: {})", bucket, 
                 )
@@ -660,19 +568,17 @@ impl Hwt {
     /// Search the given `bucket` with the `indices` iterator, using `subtable`
     /// to recursively iterate over buckets found inside this bucket.
     #[allow(clippy::too_many_arguments)]
-    fn bucket_scan_radius<'a, F: 'a, I: 'a>(
+    fn bucket_scan_radius<'a, I: 'a>(
         &'a self,
         radius: u32,
         feature: u128,
         bucket: usize,
-        lookup: &'a F,
         indices: impl Iterator<Item = u128> + 'a,
-        subtable: fn(&'a Self, u32, u128, usize, u128, &'a F) -> I,
+        subtable: fn(&'a Self, u32, u128, usize, u128) -> I,
         filter: impl Fn(u128) -> bool + 'a,
-    ) -> Box<dyn Iterator<Item = u32> + 'a>
+    ) -> Box<dyn Iterator<Item = u128> + 'a>
     where
-        F: Fn(u32) -> u128,
-        I: Iterator<Item = u32>,
+        I: Iterator<Item = u128>,
     {
         trace!(
             "bucket_scan_radius feature({:032X}) radius({}) bucket({})",
@@ -680,25 +586,24 @@ impl Hwt {
             radius,
             bucket,
         );
+        let lookup_distance = move |leaf: u128| (leaf ^ feature).count_ones();
         match &self.internals[bucket] {
             Internal::Vec(v) => Box::new(
                 v.iter()
                     .cloned()
-                    .filter(move |&leaf| (lookup(leaf) ^ feature).count_ones() <= radius),
+                    .filter(move |&leaf| lookup_distance(leaf) <= radius),
             ),
             Internal::Map(m) => {
                 if m.len() < TAU {
                     Box::new(m.iter().filter(move |&(&key, _)| filter(key)).flat_map(
-                        move |(&tc, &node)| {
-                            subtable(self, radius, feature, node as usize, tc, lookup)
-                        },
+                        move |(&tc, &node)| subtable(self, radius, feature, node as usize, tc),
                     ))
                 } else {
                     Box::new(
                         indices
                             .filter_map(move |tc| m.get(&tc).map(|&node| (tc, node)))
                             .flat_map(move |(tc, node)| {
-                                subtable(self, radius, feature, node as usize, tc, lookup)
+                                subtable(self, radius, feature, node as usize, tc)
                             }),
                     )
                 }

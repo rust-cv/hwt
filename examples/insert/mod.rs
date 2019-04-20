@@ -1,15 +1,22 @@
 use criterion::*;
 use hwt::*;
+use rand::rngs::SmallRng;
+use rand::{Rng, SeedableRng};
 
 fn bench_insert(c: &mut Criterion) {
+    let mut rng = SmallRng::from_seed([5; 16]);
+    let space = rng
+        .sample_iter(&rand::distributions::Standard)
+        .take(1 << 20)
+        .collect::<Vec<u128>>();
+    
     c.bench(
         "insert",
-        Benchmark::new("insert_2^20_times", |bencher: &mut Bencher| {
-            let mut range = 0..;
+        Benchmark::new("insert_2^20_times", move |bencher: &mut Bencher| {
             let mut hwt = Hwt::new();
             bencher.iter(|| {
-                for i in (&mut range).take(1 << 20) {
-                    hwt.insert(u128::from(i), i, u128::from);
+                for &f in &space {
+                    hwt.insert(f);
                 }
             });
         })

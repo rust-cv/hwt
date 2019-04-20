@@ -7,8 +7,6 @@ use std::path::PathBuf;
 
 #[test]
 fn test_neighbors() {
-    // That number triggers an overflow because the
-    // bucket size is precisely as large as `usize`.
     let features = [
         0b1001,
         0b1010,
@@ -16,45 +14,40 @@ fn test_neighbors() {
         0b1000,
         0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA,
     ];
-    let lookup = |n| features[n as usize];
     let mut hwt = Hwt::new();
-    for (ix, &feature) in features.iter().enumerate() {
-        hwt.insert(feature, ix as u32, lookup);
+    for &feature in &features {
+        hwt.insert(feature);
     }
 
-    for (ix, &feature) in features.iter().enumerate() {
-        let mut neighbors = [Neighbor::default(); 1];
-        let neighbors = hwt.nearest(feature, &mut neighbors, &lookup);
-        assert_eq!(neighbors[0].index, ix as u32);
+    for &feature in &features {
+        let mut neighbors = [0; 1];
+        let neighbors = hwt.nearest(feature, &mut neighbors);
+        assert_eq!(neighbors[0], feature);
     }
 
-    let mut neighbors = hwt.search_radius(1, 0b1000, &lookup).collect::<Vec<u32>>();
+    let mut neighbors = hwt.search_radius(1, 0b1000).collect::<Vec<u128>>();
     neighbors.sort_unstable();
-    assert_eq!(&neighbors, &[0, 1, 2, 3]);
+    assert_eq!(&neighbors, &[0b1000, 0b1001, 0b1010, 0b1100]);
 
-    let mut neighbors = hwt.search_radius(1, 0b1001, &lookup).collect::<Vec<u32>>();
+    let mut neighbors = hwt.search_radius(1, 0b1001).collect::<Vec<u128>>();
     neighbors.sort_unstable();
-    assert_eq!(&neighbors, &[0, 3]);
+    assert_eq!(&neighbors, &[0b1000, 0b1001]);
 
-    let mut neighbors = hwt.search_radius(1, 0b1010, &lookup).collect::<Vec<u32>>();
+    let mut neighbors = hwt.search_radius(1, 0b1010).collect::<Vec<u128>>();
     neighbors.sort_unstable();
-    assert_eq!(&neighbors, &[1, 3]);
+    assert_eq!(&neighbors, &[0b1000, 0b1010]);
 
-    let mut neighbors = hwt.search_radius(1, 0b1100, &lookup).collect::<Vec<u32>>();
+    let mut neighbors = hwt.search_radius(1, 0b1100).collect::<Vec<u128>>();
     neighbors.sort_unstable();
-    assert_eq!(&neighbors, &[2, 3]);
+    assert_eq!(&neighbors, &[0b1000, 0b1100]);
 
     let range = (0..).take(1 << 4);
     let mut hwt = Hwt::new();
     for i in range.clone() {
-        hwt.insert(u128::from(i), i, u128::from);
+        hwt.insert(i);
     }
     for feature in range.clone() {
-        assert!(
-            hwt.search_radius(2, u128::from(feature), &u128::from)
-                .count()
-                < 8128
-        );
+        assert!(hwt.search_radius(2, feature).count() < 8128);
     }
 }
 
@@ -77,23 +70,22 @@ fn compare_to_linear() -> std::io::Result<()> {
         .sample_iter(&rand::distributions::Standard)
         .take(10)
         .collect::<Vec<u128>>();
-    let lookup = |n: u32| space[n as usize];
 
     let mut hwt = Hwt::new();
-    for (ix, &f) in space.iter().enumerate() {
-        hwt.insert(f, ix as u32, lookup);
+    for &f in &space {
+        hwt.insert(f);
     }
 
     for f0 in search {
-        let mut neighbors = [Neighbor::default(); 1];
-        let neighbors = hwt.nearest(f0, &mut neighbors, &lookup);
+        let mut neighbors = [0; 1];
+        let neighbors = hwt.nearest(f0, &mut neighbors);
         assert_eq!(
             space
                 .iter()
                 .map(|&f1| (f0 ^ f1).count_ones())
                 .min()
                 .unwrap(),
-            neighbors[0].distance
+            (neighbors[0] ^ f0).count_ones()
         );
     }
 

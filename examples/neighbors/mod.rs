@@ -29,7 +29,7 @@ fn bench_neighbors(c: &mut Criterion) {
         let range = (0..).take(total);
         let mut hwt = Hwt::new();
         for i in range.clone() {
-            hwt.insert(all_input[i], i as u32, |n| all_input[n as usize]);
+            hwt.insert(all_input[i]);
         }
         (total, hwt)
     }));
@@ -43,9 +43,9 @@ fn bench_neighbors(c: &mut Criterion) {
                 let mut cycle_range = random_samples.iter().cloned().cycle();
                 bencher.iter(|| {
                     let feature = cycle_range.next().unwrap();
-                    let mut neighbors = [Neighbor::default(); 1];
+                    let mut neighbors = [0; 1];
                     assert_eq!(
-                        hwt.nearest(feature, &mut neighbors, &|n| all_input[n as usize])
+                        hwt.nearest(feature, &mut neighbors)
                             .len(),
                         1
                     );

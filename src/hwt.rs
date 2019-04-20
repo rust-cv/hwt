@@ -15,6 +15,8 @@ use swar::*;
 /// This should be improved by changing the threshold on a per-level of the tree basis.
 const TAU: usize = 1024;
 
+const MAP_TAUS: [usize; 7] = [TAU, TAU, TAU, TAU, TAU, TAU, TAU];
+
 /// This determines how much space is initially allocated for a leaf vector.
 const INITIAL_CAPACITY: usize = 4;
 
@@ -299,7 +301,7 @@ impl Hwt {
                     if level == 7 {
                         unreachable!("hwt: it is impossible to have an internal node at layer 7");
                     }
-                    if false {
+                    if m.len() < MAP_TAUS[level as usize] {
                         trace!(
                             "nearest brute force tp({:032X}) distance({}) len({}) level({})",
                             tp,

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::iter::FromIterator;
 
 fn bench_neighbors(c: &mut Criterion) {
-    let max_tree_magnitude = 23;
+    let max_tree_magnitude = 26;
     let all_sizes = (0..=max_tree_magnitude).map(|n| 2usize.pow(n));
     let mut rng = SmallRng::from_seed([5; 16]);
     // Get the bigest input size and then generate all inputs from that.
@@ -15,11 +15,13 @@ fn bench_neighbors(c: &mut Criterion) {
         .sample_iter(&rand::distributions::Standard)
         .take(all_sizes.clone().rev().next().unwrap())
         .collect::<Vec<u128>>();
+    let linear_all_input = all_input.clone();
     // Sample 10000 random features for lookups.
     let random_samples = rng
         .sample_iter(&rand::distributions::Standard)
         .take(10000)
         .collect::<Vec<u128>>();
+    let linear_random_samples = random_samples.clone();
     eprintln!("Done.");
     eprintln!("Generating Hamming Weight Trees...");
     let hwt_map = HashMap::<_, _>::from_iter(all_sizes.clone().map(|total| {
@@ -35,7 +37,7 @@ fn bench_neighbors(c: &mut Criterion) {
     c.bench(
         "neighbors",
         ParameterizedBenchmark::new(
-            "nearest_neighbor",
+            "nearest_1_hwt",
             move |bencher: &mut Bencher, total: &usize| {
                 let hwt = &hwt_map[total];
                 let mut cycle_range = random_samples.iter().cloned().cycle();
@@ -51,7 +53,20 @@ fn bench_neighbors(c: &mut Criterion) {
             },
             all_sizes,
         )
-        .sample_size(30),
+        .with_function(
+            "nearest_1_linear",
+            move |bencher: &mut Bencher, &total: &usize| {
+                let mut cycle_range = linear_random_samples.iter().cloned().cycle();
+                bencher.iter(|| {
+                    let feature = cycle_range.next().unwrap();
+                    linear_all_input[0..total]
+                        .iter()
+                        .cloned()
+                        .min_by_key(|n| (feature ^ n).count_ones())
+                });
+            },
+        )
+        .sample_size(32),
     );
 }
 

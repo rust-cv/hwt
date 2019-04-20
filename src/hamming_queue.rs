@@ -170,6 +170,7 @@ impl NodeQueue {
         new
     }
 
+    #[inline]
     pub fn pop(&mut self) -> Option<(u32, u128, u32, u8)> {
         loop {
             if let Some((tp, node, level)) = self.distances[self.lowest].pop() {
@@ -183,6 +184,7 @@ impl NodeQueue {
     }
 
     /// Takes an iterator over (distance, tp, node, level)
+    #[inline]
     pub fn add(&mut self, children: impl IntoIterator<Item = (u32, u128, u32, u8)>) {
         for child in children {
             self.add_one(child);
@@ -190,6 +192,7 @@ impl NodeQueue {
     }
 
     /// Takes an iterator over (distance, tp, node, level)
+    #[inline]
     pub fn add_one(&mut self, (distance, tp, node, level): (u32, u128, u32, u8)) {
         self.distances[distance as usize].push((tp, node, level));
     }

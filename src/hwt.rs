@@ -261,6 +261,7 @@ impl Hwt {
         // Expand the root node.
         let mut node_queue = NodeQueue::new(match &self.internals[0] {
             Internal::Vec(v) => {
+                trace!("nearest sole leaf node len({})", v.len());
                 let mut v: Vec<Neighbor> = v
                     .iter()
                     .map(|&index| Neighbor {
@@ -291,7 +292,13 @@ impl Hwt {
         while let Some((distance, tp, node, level)) = node_queue.pop() {
             match &self.internals[node as usize] {
                 Internal::Vec(v) => {
-                    trace!("nearest leaf vec len({})", v.len());
+                    trace!(
+                        "nearest leaf vec tp({:032X}) distance({}) len({}) level({})",
+                        tp,
+                        distance,
+                        v.len(),
+                        level
+                    );
                     // We will accumulate the minimum leaf distance over `distance`
                     // into this variable so we know when to search this leaf again.
                     let mut min_over_distance = 129;
@@ -338,13 +345,25 @@ impl Hwt {
                         unreachable!("hwt: it is impossible to have an internal node at layer 7");
                     }
                     if m.len() < TAU {
-                        trace!("nearest brute force len({})", m.len());
+                        trace!(
+                            "nearest brute force tp({:032X}) distance({}) len({}) level({})",
+                            tp,
+                            distance,
+                            m.len(),
+                            level
+                        );
                         node_queue.add(m.iter().map(|(&tc, &child)| {
                             let child_distance = index_distance(tc, &indices, level);
                             (child_distance, tc, child, level + 1)
                         }));
                     } else {
-                        trace!("nearest precision search len({})", m.len());
+                        trace!(
+                            "nearest precision search tp({:032X}) distance({}) len({}) level({})",
+                            tp,
+                            distance,
+                            m.len(),
+                            level
+                        );
                         let filter_map =
                             |tc| m.get(&tc).map(|&child| (distance, tc, child, level + 1));
                         match level {

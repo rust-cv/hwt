@@ -241,6 +241,8 @@ impl Hwt {
     /// neighbors first and expand outwards. It will fill `dest` until its full
     /// with nearest neighbors in order. `lookup` must be able to retrieve the
     /// feature for a given leaf index.
+    ///
+    /// Returns the slice of filled neighbors. It may not consume all of `dest`.
     pub fn nearest<'a, F>(
         &self,
         feature: u128,
@@ -250,7 +252,11 @@ impl Hwt {
     where
         F: Fn(u32) -> u128,
     {
-        trace!("nearest feature({:032X})", feature);
+        trace!(
+            "nearest feature({:032X}) weight({})",
+            feature,
+            feature.count_ones()
+        );
         let destlen = dest.len();
         let indices = indices128(feature);
         let (mut next, mut remaining) = match dest.split_first_mut() {
@@ -353,7 +359,7 @@ impl Hwt {
                             level
                         );
                         node_queue.add(m.iter().map(|(&tc, &child)| {
-                            let child_distance = index_distance(tc, &indices, level);
+                            let child_distance = index_distance(tc, &indices, level + 1);
                             (child_distance, tc, child, level + 1)
                         }));
                     } else {

@@ -75,7 +75,7 @@ fn compare_to_linear() -> std::io::Result<()> {
         .collect::<Vec<u128>>();
     let search = rng
         .sample_iter(&rand::distributions::Standard)
-        .take(1000)
+        .take(100)
         .collect::<Vec<u128>>();
     let lookup = |n: u32| space[n as usize];
 
@@ -88,7 +88,11 @@ fn compare_to_linear() -> std::io::Result<()> {
         let mut neighbors = [Neighbor::default(); 1];
         let neighbors = hwt.nearest(f0, &mut neighbors, &lookup);
         assert_eq!(
-            space.iter().map(|&f1| (f0 ^ f1).count_ones()).min().unwrap(),
+            space
+                .iter()
+                .map(|&f1| (f0 ^ f1).count_ones())
+                .min()
+                .unwrap(),
             neighbors[0].distance
         );
     }

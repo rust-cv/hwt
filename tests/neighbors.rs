@@ -75,7 +75,7 @@ fn compare_to_linear() -> std::io::Result<()> {
         .collect::<Vec<u128>>();
     let search = rng
         .sample_iter(&rand::distributions::Standard)
-        .take(100)
+        .take(10)
         .collect::<Vec<u128>>();
     let lookup = |n: u32| space[n as usize];
 

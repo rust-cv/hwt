@@ -350,7 +350,7 @@ impl Hwt {
                     if level == 7 {
                         unreachable!("hwt: it is impossible to have an internal node at layer 7");
                     }
-                    if m.len() < TAU {
+                    if false {
                         trace!(
                             "nearest brute force tp({:032X}) distance({}) len({}) level({})",
                             tp,

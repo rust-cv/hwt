@@ -22,14 +22,30 @@ pub fn indices128(v: u128) -> [u128; 8] {
 #[inline(always)]
 pub fn index_distance(target: u128, indices: &[u128; 8], level: u8) -> u32 {
     match level {
-        0 => Bits128(target).hwd(Bits128(indices[level as usize])).sum_weight() as u32,
-        1 => Bits64(target).hwd(Bits64(indices[level as usize])).sum_weight() as u32,
-        2 => Bits32(target).hwd(Bits32(indices[level as usize])).sum_weight() as u32,
-        3 => Bits16(target).hwd(Bits16(indices[level as usize])).sum_weight() as u32,
-        4 => Bits8(target).hwd(Bits8(indices[level as usize])).sum_weight() as u32,
-        5 => Bits4(target).hwd(Bits4(indices[level as usize])).sum_weight() as u32,
-        6 => Bits2(target).hwd(Bits2(indices[level as usize])).sum_weight() as u32,
-        7 => Bits1(target).hwd(Bits1(indices[level as usize])).sum_weight() as u32,
+        0 => Bits128(target)
+            .hwd(Bits128(indices[level as usize]))
+            .sum_weight() as u32,
+        1 => Bits64(target)
+            .hwd(Bits64(indices[level as usize]))
+            .sum_weight() as u32,
+        2 => Bits32(target)
+            .hwd(Bits32(indices[level as usize]))
+            .sum_weight() as u32,
+        3 => Bits16(target)
+            .hwd(Bits16(indices[level as usize]))
+            .sum_weight() as u32,
+        4 => Bits8(target)
+            .hwd(Bits8(indices[level as usize]))
+            .sum_weight() as u32,
+        5 => Bits4(target)
+            .hwd(Bits4(indices[level as usize]))
+            .sum_weight() as u32,
+        6 => Bits2(target)
+            .hwd(Bits2(indices[level as usize]))
+            .sum_weight() as u32,
+        7 => Bits1(target)
+            .hwd(Bits1(indices[level as usize]))
+            .sum_weight() as u32,
         _ => unreachable!(),
     }
 }

@@ -128,10 +128,12 @@ pub fn search_radius8(
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
 
-    Box::new(search_radius4(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-        search_radius4(rsp, rsc, rtp, radius - lsod)
-            .map(move |(rtc, rsod)| (Bits16::union(ltc, rtc), lsod + rsod))
-    }))
+    Box::new(
+        search_radius4(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+            search_radius4(rsp, rsc, rtp, radius - lsod)
+                .map(move |(rtc, rsod)| (Bits16::union(ltc, rtc), lsod + rsod))
+        }),
+    )
 }
 
 /// Gets all the possible offsets in a feature that maintain a particular

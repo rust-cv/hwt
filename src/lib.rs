@@ -292,10 +292,10 @@
 //! algorithm will make us test all of those places in the space if they have
 //! tables in the tree.
 
-mod hwt;
 mod hamming_queue;
+mod hwt;
 pub mod indices;
 pub mod search;
 
-pub use hwt::*;
 pub use hamming_queue::*;
+pub use hwt::*;

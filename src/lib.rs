@@ -293,7 +293,9 @@
 //! tables in the tree.
 
 mod hwt;
+mod hamming_queue;
 pub mod indices;
 pub mod search;
 
-pub use self::hwt::*;
+pub use hwt::*;
+pub use hamming_queue::*;

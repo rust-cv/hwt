@@ -23,9 +23,9 @@ fn test_neighbors() {
     }
 
     for (ix, &feature) in features.iter().enumerate() {
-        let mut neighbors = hwt.nearest(feature, &lookup).take(1).collect::<Vec<u32>>();
-        neighbors.sort_unstable();
-        assert_eq!(&neighbors, &[ix as u32]);
+        let mut neighbors = [Neighbor::default(); 1];
+        let neighbors = hwt.nearest(feature, &mut neighbors, &lookup);
+        assert_eq!(neighbors[0].index, ix as u32);
     }
 
     let mut neighbors = hwt.search_radius(1, 0b1000, &lookup).collect::<Vec<u32>>();
@@ -85,12 +85,11 @@ fn compare_to_linear() -> std::io::Result<()> {
     }
 
     for f0 in search {
+        let mut neighbors = [Neighbor::default(); 1];
+        let neighbors = hwt.nearest(f0, &mut neighbors, &lookup);
         assert_eq!(
-            space
-                .iter()
-                .map(|&f1| (f0 ^ f1).count_ones())
-                .min(),
-            hwt.nearest(f0, &lookup).next().map(|n| (lookup(n) ^ f0).count_ones())
+            space.iter().map(|&f1| (f0 ^ f1).count_ones()).min().unwrap(),
+            neighbors[0].distance
         );
     }
 

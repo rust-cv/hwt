@@ -41,10 +41,10 @@ fn bench_neighbors(c: &mut Criterion) {
                 let mut cycle_range = random_samples.iter().cloned().cycle();
                 bencher.iter(|| {
                     let feature = cycle_range.next().unwrap();
+                    let mut neighbors = [Neighbor::default(); 1];
                     assert_eq!(
-                        hwt.nearest(feature, &|n| all_input[n as usize])
-                            .take(1)
-                            .count(),
+                        hwt.nearest(feature, &mut neighbors, &|n| all_input[n as usize])
+                            .len(),
                         1
                     );
                 });

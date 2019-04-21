@@ -18,7 +18,7 @@ const TAU: usize = 1024;
 const MAP_TAUS: [usize; 7] = [TAU, TAU, TAU, TAU, TAU, TAU, TAU];
 
 /// This determines how much space is initially allocated for a leaf vector.
-const INITIAL_CAPACITY: usize = 4;
+const INITIAL_CAPACITY: usize = 16;
 
 #[derive(Debug)]
 enum Internal {

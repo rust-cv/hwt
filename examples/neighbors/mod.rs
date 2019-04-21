@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::iter::FromIterator;
 
 fn bench_neighbors(c: &mut Criterion) {
-    let space_mags = 21..=21;
+    let space_mags = 0..=26;
     let all_sizes = (space_mags).map(|n| 2usize.pow(n));
     let mut rng = SmallRng::from_seed([5; 16]);
     // Get the bigest input size and then generate all inputs from that.
@@ -44,11 +44,7 @@ fn bench_neighbors(c: &mut Criterion) {
                 bencher.iter(|| {
                     let feature = cycle_range.next().unwrap();
                     let mut neighbors = [0; 1];
-                    assert_eq!(
-                        hwt.nearest(feature, &mut neighbors)
-                            .len(),
-                        1
-                    );
+                    assert_eq!(hwt.nearest(feature, &mut neighbors).len(), 1);
                 });
             },
             all_sizes,
@@ -65,13 +61,12 @@ fn bench_neighbors(c: &mut Criterion) {
                         .min_by_key(|n| (feature ^ n).count_ones())
                 });
             },
-        )
-        .sample_size(32),
+        ),
     );
 }
 
 fn config() -> Criterion {
-    Criterion::default()
+    Criterion::default().sample_size(32)
 }
 
 criterion_group! {

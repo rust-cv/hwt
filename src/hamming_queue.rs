@@ -18,18 +18,65 @@
 
 use std::fmt;
 
+type Distances<'a, T> = [Vec<(u128, &'a [T], u8)>; 129];
+type NodeEntry<'a> = (u32, u128, &'a [(u128, u32)], u8);
+type LeafEntry<'a> = (u32, u128, &'a [u128], u8);
+
 #[derive(Clone)]
-pub struct NodeQueue {
-    distances: [Vec<(u128, u32, u8)>; 129],
+pub struct NodeQueue<'a> {
+    distances: Distances<'a, (u128, u32)>,
     lowest: usize,
 }
 
-impl NodeQueue {
+impl<'a> NodeQueue<'a> {
     /// Takes all the entries in the root node (level 0) and adds them to the queue.
     ///
-    /// This is passed the (distance, node) pairs.
-    pub fn new(root: impl IntoIterator<Item = (u32, u128, u32)>) -> Self {
-        let mut new = Self {
+    /// This is passed the (distance, tp, node).
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    #[inline]
+    pub fn pop(&mut self) -> Option<NodeEntry<'a>> {
+        loop {
+            if let Some((tp, node, level)) = self.distances[self.lowest].pop() {
+                return Some((self.lowest as u32, tp, node, level));
+            } else if self.lowest == 128 {
+                return None;
+            } else {
+                self.lowest += 1;
+            }
+        }
+    }
+
+    /// Takes an iterator over (distance, tp, node, level)
+    #[inline]
+    pub fn add(&mut self, children: impl IntoIterator<Item = (u32, u128, &'a [(u128, u32)], u8)>) {
+        for child in children {
+            self.add_one(child);
+        }
+    }
+
+    /// Takes an iterator over (distance, tp, node, level)
+    #[inline]
+    pub fn add_one(&mut self, (distance, tp, node, level): (u32, u128, &'a [(u128, u32)], u8)) {
+        self.distances[distance as usize].push((tp, node, level));
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.lowest == 128 && self.distances[self.lowest].is_empty()
+    }
+}
+
+impl<'a> fmt::Debug for NodeQueue<'a> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        self.distances[..].fmt(formatter)
+    }
+}
+
+impl<'a> Default for NodeQueue<'a> {
+    fn default() -> Self {
+        Self {
             distances: [
                 vec![],
                 vec![],
@@ -162,16 +209,26 @@ impl NodeQueue {
                 vec![],
             ],
             lowest: 0,
-        };
-        new.add(
-            root.into_iter()
-                .map(|(distance, tp, node)| (distance, tp, node, 0)),
-        );
-        new
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct LeafQueue<'a> {
+    distances: Distances<'a, u128>,
+    lowest: usize,
+}
+
+impl<'a> LeafQueue<'a> {
+    /// Takes all the entries in the root node (level 0) and adds them to the queue.
+    ///
+    /// This is passed the (distance, tp, node).
+    pub fn new() -> Self {
+        Default::default()
     }
 
     #[inline]
-    pub fn pop(&mut self) -> Option<(u32, u128, u32, u8)> {
+    pub fn pop(&mut self) -> Option<LeafEntry<'a>> {
         loop {
             if let Some((tp, node, level)) = self.distances[self.lowest].pop() {
                 return Some((self.lowest as u32, tp, node, level));
@@ -185,7 +242,7 @@ impl NodeQueue {
 
     /// Takes an iterator over (distance, tp, node, level)
     #[inline]
-    pub fn add(&mut self, children: impl IntoIterator<Item = (u32, u128, u32, u8)>) {
+    pub fn add(&mut self, children: impl IntoIterator<Item = (u32, u128, &'a [u128], u8)>) {
         for child in children {
             self.add_one(child);
         }
@@ -193,13 +250,156 @@ impl NodeQueue {
 
     /// Takes an iterator over (distance, tp, node, level)
     #[inline]
-    pub fn add_one(&mut self, (distance, tp, node, level): (u32, u128, u32, u8)) {
+    pub fn add_one(&mut self, (distance, tp, node, level): (u32, u128, &'a [u128], u8)) {
         self.distances[distance as usize].push((tp, node, level));
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.lowest == 128 && self.distances[self.lowest].is_empty()
     }
 }
 
-impl fmt::Debug for NodeQueue {
+impl<'a> fmt::Debug for LeafQueue<'a> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         self.distances[..].fmt(formatter)
+    }
+}
+
+impl<'a> Default for LeafQueue<'a> {
+    fn default() -> Self {
+        Self {
+            distances: [
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+            ],
+            lowest: 0,
+        }
     }
 }

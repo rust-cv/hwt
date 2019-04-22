@@ -1,9 +1,7 @@
 use crate::indices::*;
-use crate::search::*;
-use crate::NodeQueue;
-use hashbrown::{hash_map::Entry, HashMap};
+use crate::{LeafQueue, NodeQueue};
+use hashbrown::HashMap;
 use log::trace;
-use std::cmp::{max, min};
 use swar::*;
 
 /// This threshold determines whether to perform a brute-force search in a bucket
@@ -13,19 +11,19 @@ use swar::*;
 /// this also defines the threshold at which a vector must be split into a hash table.
 ///
 /// This should be improved by changing the threshold on a per-level of the tree basis.
-const TAU: usize = 1024;
-
-const MAP_TAUS: [usize; 7] = [TAU, TAU, TAU, TAU, TAU, TAU, TAU];
+const TAU: usize = 1 << 10;
 
 /// This determines how much space is initially allocated for a leaf vector.
 const INITIAL_CAPACITY: usize = 16;
+
+pub(crate) type InternalMap = HashMap<u128, u32, std::hash::BuildHasherDefault<ahash::AHasher>>;
 
 #[derive(Debug)]
 enum Internal {
     /// This always contains features.
     Vec(Vec<u128>),
     /// This always points to another internal node.
-    Map(HashMap<u128, u32, std::hash::BuildHasherDefault<ahash::AHasher>>),
+    Map(Vec<(u128, u32)>),
 }
 
 impl Default for Internal {
@@ -96,7 +94,7 @@ impl Hwt {
         // Use the old vec to create a new map for the node.
         self.internals[internal] = match old_vec {
             Internal::Vec(v) => {
-                let mut map = HashMap::default();
+                let mut map = InternalMap::default();
                 for feature in v.into_iter() {
                     let index = indices128(feature)[level];
                     let new_internal =
@@ -109,7 +107,7 @@ impl Hwt {
                         );
                     }
                 }
-                Internal::Map(map)
+                Internal::Map(map.into_iter().collect())
             }
             _ => panic!("tried to convert an InternalStore::Map"),
         }
@@ -138,7 +136,7 @@ impl Hwt {
         let indices = indices128(feature);
         let mut bucket = 0;
         let mut create_internal = None;
-        for (i, &node) in indices.iter().enumerate() {
+        for (i, &tc) in indices.iter().enumerate() {
             match &mut self.internals[bucket] {
                 Internal::Vec(ref mut v) => {
                     v.push(feature);
@@ -148,14 +146,13 @@ impl Hwt {
                     return;
                 }
                 Internal::Map(ref mut map) => {
-                    match map.entry(node) {
-                        Entry::Occupied(o) => {
-                            let internal = *o.get();
+                    match map.iter().find(|&&(tc_leaf, _)| tc == tc_leaf) {
+                        Some(&(_, internal)) => {
                             // Go to the next node.
                             bucket = internal as usize;
                         }
-                        Entry::Vacant(_) => {
-                            create_internal = Some(node);
+                        None => {
+                            create_internal = Some(tc);
                             break;
                         }
                     }
@@ -173,7 +170,7 @@ impl Hwt {
             }
             // Add the new internal to the vacant map spot.
             if let Internal::Map(ref mut map) = &mut self.internals[bucket] {
-                map.insert(vacant_node, new_internal);
+                map.push((vacant_node, new_internal));
             } else {
                 unreachable!("shouldn't ever get vec after finding vacant map node");
             }
@@ -203,12 +200,12 @@ impl Hwt {
         // for each layer of the tree.
         let indices = indices128(feature);
         let mut bucket = 0;
-        for index in &indices {
+        for &index in &indices {
             match &self.internals[bucket] {
                 Internal::Vec(vec) => return vec.iter().cloned().any(|n| n == feature),
                 Internal::Map(map) => {
-                    if let Some(&occupied_node) = map.get(index) {
-                        bucket = occupied_node as usize;
+                    if let Some(&(_, internal)) = map.iter().find(|&&(tc, _)| tc == index) {
+                        bucket = internal as usize;
                     } else {
                         return false;
                     }
@@ -238,7 +235,9 @@ impl Hwt {
         };
         let lookup_distance = |leaf: u128| (leaf ^ feature).count_ones();
         // Expand the root node.
-        let mut node_queue = NodeQueue::new(match &self.internals[0] {
+        let mut node_queue = NodeQueue::new();
+        let mut leaf_queue = LeafQueue::new();
+        match &self.internals[0] {
             Internal::Vec(v) => {
                 trace!("nearest sole leaf node len({})", v.len());
                 let mut v = v.clone();
@@ -255,153 +254,91 @@ impl Hwt {
             }
             Internal::Map(m) => {
                 trace!("nearest emptying root len({})", m.len());
-                m.iter().map(|(&tc, &node)| {
+                for (distance, tc, node) in m.iter().map(|&(tc, node)| {
                     let distance = (tc as i32 - indices[0] as i32).abs() as u32;
                     (distance, tc, node)
-                })
-            }
-        });
-
-        while let Some((distance, tp, node, level)) = node_queue.pop() {
-            match &self.internals[node as usize] {
-                Internal::Vec(v) => {
-                    trace!(
-                        "nearest leaf vec tp({:032X}) distance({}) len({}) level({})",
-                        tp,
-                        distance,
-                        v.len(),
-                        level
-                    );
-                    // We will accumulate the minimum leaf distance over `distance`
-                    // into this variable so we know when to search this leaf again.
-                    let mut min_over_distance = 129;
-                    for leaf in v.iter().cloned().filter(|&other| {
-                        let leaf_distance = lookup_distance(other);
-                        if leaf_distance < min_over_distance && leaf_distance > distance {
-                            min_over_distance = leaf_distance;
+                }) {
+                    match &self.internals[node as usize] {
+                        Internal::Vec(v) => {
+                            leaf_queue.add_one((distance, tc, v.as_slice(), 0));
                         }
-                        leaf_distance == distance
-                    }) {
-                        *next = leaf;
-                        match remaining.split_first_mut() {
-                            Some((new_next, new_remaining)) => {
-                                next = new_next;
-                                remaining = new_remaining;
-                            }
-                            None => return dest,
-                        };
-                    }
-                    // If we found a distance in the valid range.
-                    if min_over_distance < 129 {
-                        // Re-add the leaf node with a higher distance so we revisit it at that time.
-                        node_queue.add_one((min_over_distance, tp, node, level));
+                        Internal::Map(m) => {
+                            node_queue.add_one((distance, tc, m.as_slice(), 0));
+                        }
                     }
                 }
-                Internal::Map(m) => {
-                    if level == 7 {
-                        unreachable!("hwt: it is impossible to have an internal node at layer 7");
+            }
+        }
+
+        while !node_queue.is_empty() || !leaf_queue.is_empty() {
+            while let Some((distance, tp, internal, level)) = node_queue.pop() {
+                if level == 7 {
+                    unreachable!("hwt: it is impossible to have an internal node at layer 7");
+                }
+                trace!(
+                    "nearest brute force tp({:032X}) distance({}) len({}) level({})",
+                    tp,
+                    distance,
+                    internal.len(),
+                    level
+                );
+                let mut min_over_distance = 129;
+                for (child_distance, tc, child) in internal.iter().map(|&(tc, child)| {
+                    let child_distance = index_distance(tc, &indices, level + 1);
+                    (child_distance, tc, child)
+                }) {
+                    if child_distance < min_over_distance && child_distance > distance {
+                        min_over_distance = child_distance;
                     }
-                    if m.len() < MAP_TAUS[level as usize] {
-                        trace!(
-                            "nearest brute force tp({:032X}) distance({}) len({}) level({})",
-                            tp,
-                            distance,
-                            m.len(),
-                            level
-                        );
-                        node_queue.add(m.iter().map(|(&tc, &child)| {
-                            let child_distance = index_distance(tc, &indices, level + 1);
-                            (child_distance, tc, child, level + 1)
-                        }));
-                    } else {
-                        trace!(
-                            "nearest precision search tp({:032X}) distance({}) len({}) level({})",
-                            tp,
-                            distance,
-                            m.len(),
-                            level
-                        );
-                        let filter_map =
-                            |tc| m.get(&tc).map(|&child| (distance, tc, child, level + 1));
-                        match level {
-                            0 => node_queue.add(
-                                search_exact2(
-                                    Bits128(indices[0]),
-                                    Bits64(indices[1]),
-                                    Bits128(tp),
-                                    distance,
-                                )
-                                .map(|n| n.0)
-                                .filter_map(filter_map),
-                            ),
-                            1 => node_queue.add(
-                                search_exact4(
-                                    Bits64(indices[1]),
-                                    Bits32(indices[2]),
-                                    Bits64(tp),
-                                    distance,
-                                )
-                                .map(|n| n.0)
-                                .filter_map(filter_map),
-                            ),
-                            2 => node_queue.add(
-                                search_exact8(
-                                    Bits32(indices[2]),
-                                    Bits16(indices[3]),
-                                    Bits32(tp),
-                                    distance,
-                                )
-                                .map(|n| n.0)
-                                .filter_map(filter_map),
-                            ),
-                            3 => node_queue.add(
-                                search_exact16(
-                                    Bits16(indices[3]),
-                                    Bits8(indices[4]),
-                                    Bits16(tp),
-                                    distance,
-                                )
-                                .map(|n| n.0)
-                                .filter_map(filter_map),
-                            ),
-                            4 => node_queue.add(
-                                search_exact32(
-                                    Bits8(indices[4]),
-                                    Bits4(indices[5]),
-                                    Bits8(tp),
-                                    distance,
-                                )
-                                .map(|n| n.0)
-                                .filter_map(filter_map),
-                            ),
-                            5 => node_queue.add(
-                                search_exact64(
-                                    Bits4(indices[5]),
-                                    Bits2(indices[6]),
-                                    Bits4(tp),
-                                    distance,
-                                )
-                                .map(|n| n.0)
-                                .filter_map(filter_map),
-                            ),
-                            6 => node_queue.add(
-                                search_exact128(
-                                    Bits2(indices[6]),
-                                    Bits1(indices[7]),
-                                    Bits2(tp),
-                                    distance,
-                                )
-                                .map(|n| n.0)
-                                .filter_map(filter_map),
-                            ),
-                            _ => unreachable!(),
-                        }
-                        if distance != 128 {
-                            // Re-add the node at a higher distance since we already got everything
-                            // from `distance - 1`.
-                            node_queue.add_one((distance + 1, tp, node, level));
+                    if child_distance == distance {
+                        match &self.internals[child as usize] {
+                            Internal::Vec(v) => {
+                                leaf_queue.add_one((child_distance, tc, v.as_slice(), level + 1));
+                            }
+                            Internal::Map(m) => {
+                                node_queue.add_one((child_distance, tc, m.as_slice(), level + 1));
+                            }
                         }
                     }
+                }
+                // If we found a distance in the valid range.
+                if min_over_distance < 129 {
+                    // Re-add the leaf node with a higher distance so we revisit it at that time.
+                    node_queue.add_one((min_over_distance, tp, internal, level));
+                }
+            }
+
+            while let Some((distance, tp, leaves, level)) = leaf_queue.pop() {
+                trace!(
+                    "nearest leaf vec tp({:032X}) distance({}) len({}) level({})",
+                    tp,
+                    distance,
+                    leaves.len(),
+                    level
+                );
+                // We will accumulate the minimum leaf distance over `distance`
+                // into this variable so we know when to search this leaf again.
+                let mut min_over_distance = 129;
+                for leaf in leaves.iter().cloned().filter(|&other| {
+                    let leaf_distance = lookup_distance(other);
+                    if leaf_distance < min_over_distance && leaf_distance > distance {
+                        min_over_distance = leaf_distance;
+                    }
+                    leaf_distance == distance
+                }) {
+                    *next = leaf;
+                    match remaining.split_first_mut() {
+                        Some((new_next, new_remaining)) => {
+                            next = new_next;
+                            remaining = new_remaining;
+                        }
+                        None => return dest,
+                    };
+                }
+                // If we found a distance in the valid range.
+                if min_over_distance < 129 {
+                    // Re-add the leaf node with a higher distance so we revisit it at that time.
+                    leaf_queue.add_one((min_over_distance, tp, leaves, level));
                 }
             }
         }
@@ -416,19 +353,10 @@ impl Hwt {
         feature: u128,
     ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
-        let sw = indices[0] as i32;
-        let start = max(0, sw - radius as i32) as u128;
-        let end = min(128, sw + radius as i32) as u128;
         // Iterate over every applicable index in the root.
-        self.bucket_scan_radius(
-            radius,
-            feature,
-            0, // The index is the `tw` because at the root node indices
-            // are target weights.
-            start..=end,
-            Self::radius2,
-            move |tc| Bits64(tc).hwd(Bits64(indices[1])).sum_weight() as u32 <= radius,
-        )
+        self.bucket_scan_radius(radius, feature, 0, Self::radius2, move |tc| {
+            Bits64(tc).hwd(Bits64(indices[1])).sum_weight() as u32 <= radius
+        })
     }
 
     fn radius2<'a>(
@@ -436,18 +364,11 @@ impl Hwt {
         radius: u32,
         feature: u128,
         bucket: usize,
-        tp: u128,
     ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
-        self.bucket_scan_radius(
-            radius,
-            feature,
-            bucket,
-            search_radius2(Bits128(indices[0]), Bits64(indices[1]), Bits128(tp), radius)
-                .map(|(tc, _sod)| tc.0),
-            Self::radius4,
-            move |tc| Bits32(tc).hwd(Bits32(indices[2])).sum_weight() as u32 <= radius,
-        )
+        self.bucket_scan_radius(radius, feature, bucket, Self::radius4, move |tc| {
+            Bits32(tc).hwd(Bits32(indices[2])).sum_weight() as u32 <= radius
+        })
     }
 
     fn radius4<'a>(
@@ -455,18 +376,11 @@ impl Hwt {
         radius: u32,
         feature: u128,
         bucket: usize,
-        tp: u128,
     ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
-        self.bucket_scan_radius(
-            radius,
-            feature,
-            bucket,
-            search_radius4(Bits64(indices[1]), Bits32(indices[2]), Bits64(tp), radius)
-                .map(|(tc, _sod)| tc.0),
-            Self::radius8,
-            move |tc| Bits16(tc).hwd(Bits16(indices[3])).sum_weight() as u32 <= radius,
-        )
+        self.bucket_scan_radius(radius, feature, bucket, Self::radius8, move |tc| {
+            Bits16(tc).hwd(Bits16(indices[3])).sum_weight() as u32 <= radius
+        })
     }
 
     fn radius8<'a>(
@@ -474,18 +388,11 @@ impl Hwt {
         radius: u32,
         feature: u128,
         bucket: usize,
-        tp: u128,
     ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
-        self.bucket_scan_radius(
-            radius,
-            feature,
-            bucket,
-            search_radius8(Bits32(indices[2]), Bits16(indices[3]), Bits32(tp), radius)
-                .map(|(tc, _sod)| tc.0),
-            Self::radius16,
-            move |tc| Bits8(tc).hwd(Bits8(indices[4])).sum_weight() as u32 <= radius,
-        )
+        self.bucket_scan_radius(radius, feature, bucket, Self::radius16, move |tc| {
+            Bits8(tc).hwd(Bits8(indices[4])).sum_weight() as u32 <= radius
+        })
     }
 
     fn radius16<'a>(
@@ -493,18 +400,11 @@ impl Hwt {
         radius: u32,
         feature: u128,
         bucket: usize,
-        tp: u128,
     ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
-        self.bucket_scan_radius(
-            radius,
-            feature,
-            bucket,
-            search_radius16(Bits16(indices[3]), Bits8(indices[4]), Bits16(tp), radius)
-                .map(|(tc, _sod)| tc.0),
-            Self::radius32,
-            move |tc| Bits4(tc).hwd(Bits4(indices[5])).sum_weight() as u32 <= radius,
-        )
+        self.bucket_scan_radius(radius, feature, bucket, Self::radius32, move |tc| {
+            Bits4(tc).hwd(Bits4(indices[5])).sum_weight() as u32 <= radius
+        })
     }
 
     fn radius32<'a>(
@@ -512,18 +412,11 @@ impl Hwt {
         radius: u32,
         feature: u128,
         bucket: usize,
-        tp: u128,
     ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
-        self.bucket_scan_radius(
-            radius,
-            feature,
-            bucket,
-            search_radius32(Bits8(indices[4]), Bits4(indices[5]), Bits8(tp), radius)
-                .map(|(tc, _sod)| tc.0),
-            Self::radius64,
-            move |tc| Bits2(tc).hwd(Bits2(indices[6])).sum_weight() as u32 <= radius,
-        )
+        self.bucket_scan_radius(radius, feature, bucket, Self::radius64, move |tc| {
+            Bits2(tc).hwd(Bits2(indices[6])).sum_weight() as u32 <= radius
+        })
     }
 
     fn radius64<'a>(
@@ -531,18 +424,11 @@ impl Hwt {
         radius: u32,
         feature: u128,
         bucket: usize,
-        tp: u128,
     ) -> impl Iterator<Item = u128> + 'a {
         let indices = indices128(feature);
-        self.bucket_scan_radius(
-            radius,
-            feature,
-            bucket,
-            search_radius64(Bits4(indices[5]), Bits2(indices[6]), Bits4(tp), radius)
-                .map(|(tc, _sod)| tc.0),
-            Self::radius128,
-            move |tc| Bits1(tc).hwd(Bits1(indices[7])).sum_weight() as u32 <= radius,
-        )
+        self.bucket_scan_radius(radius, feature, bucket, Self::radius128, move |tc| {
+            Bits1(tc).hwd(Bits1(indices[7])).sum_weight() as u32 <= radius
+        })
     }
 
     fn radius128<'a>(
@@ -550,15 +436,12 @@ impl Hwt {
         radius: u32,
         feature: u128,
         bucket: usize,
-        tp: u128,
     ) -> impl Iterator<Item = u128> + 'a {
-        let indices = indices128(feature);
         self.bucket_scan_radius(
             radius,
             feature,
             bucket,
-            search_radius128(Bits2(indices[6]), Bits1(indices[7]), Bits2(tp), radius).map(|(tc, _sod)| tc.0),
-            |_, _, _, bucket, _| -> Box<dyn Iterator<Item = u128> + 'a> {
+            |_, _, _, bucket| -> Box<dyn Iterator<Item = u128> + 'a> {
                 panic!(
                     "hwt::Hwt::neighbors128(): it is an error to find an internal node this far down in the tree (bucket: {})", bucket, 
                 )
@@ -575,8 +458,7 @@ impl Hwt {
         radius: u32,
         feature: u128,
         bucket: usize,
-        indices: impl Iterator<Item = u128> + 'a,
-        subtable: fn(&'a Self, u32, u128, usize, u128) -> I,
+        subtable: fn(&'a Self, u32, u128, usize) -> I,
         filter: impl Fn(u128) -> bool + 'a,
     ) -> Box<dyn Iterator<Item = u128> + 'a>
     where
@@ -595,31 +477,17 @@ impl Hwt {
                     .cloned()
                     .filter(move |&leaf| lookup_distance(leaf) <= radius),
             ),
-            Internal::Map(m) => {
-                if m.len() < TAU {
-                    Box::new(m.iter().filter(move |&(&key, _)| filter(key)).flat_map(
-                        move |(&tc, &node)| subtable(self, radius, feature, node as usize, tc),
-                    ))
-                } else {
-                    Box::new(
-                        indices
-                            .filter_map(move |tc| m.get(&tc).map(|&node| (tc, node)))
-                            .flat_map(move |(tc, node)| {
-                                subtable(self, radius, feature, node as usize, tc)
-                            }),
-                    )
-                }
-            }
+            Internal::Map(m) => Box::new(
+                m.iter()
+                    .filter(move |&&(key, _)| filter(key))
+                    .flat_map(move |&(_, node)| subtable(self, radius, feature, node as usize)),
+            ),
         }
     }
 }
 
 impl Default for Hwt {
     fn default() -> Self {
-        // The number of child nodes of the root is determined by the different
-        // possible hamming weights. The maximum hamming weight is the number
-        // of bits and the minimum is 0, so this means that there are
-        // `NBits + 1` child nodes.
         Self {
             internals: vec![Internal::default()],
             count: 0,

@@ -15,7 +15,7 @@ pub fn search_radius128(
     sc: Bits1<u128>,
     tp: Bits2<u128>,
     radius: u32,
-) -> Box<dyn Iterator<Item = (Bits1<u128>, u32)>> {
+) -> impl Iterator<Item = (Bits1<u128>, u32)> {
     let (lsp, rsp) = sp.halve();
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
@@ -42,7 +42,7 @@ pub fn search_radius64(
     sc: Bits2<u128>,
     tp: Bits4<u128>,
     radius: u32,
-) -> Box<dyn Iterator<Item = (Bits2<u128>, u32)>> {
+) -> impl Iterator<Item = (Bits2<u128>, u32)> {
     let (lsp, rsp) = sp.halve();
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
@@ -69,7 +69,7 @@ pub fn search_radius32(
     sc: Bits4<u128>,
     tp: Bits8<u128>,
     radius: u32,
-) -> Box<dyn Iterator<Item = (Bits4<u128>, u32)>> {
+) -> impl Iterator<Item = (Bits4<u128>, u32)> {
     let (lsp, rsp) = sp.halve();
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
@@ -96,17 +96,15 @@ pub fn search_radius16(
     sc: Bits8<u128>,
     tp: Bits16<u128>,
     radius: u32,
-) -> Box<dyn Iterator<Item = (Bits8<u128>, u32)>> {
+) -> impl Iterator<Item = (Bits8<u128>, u32)> {
     let (lsp, rsp) = sp.halve();
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
 
-    Box::new(
-        search_radius8(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-            search_radius8(rsp, rsc, rtp, radius - lsod)
-                .map(move |(rtc, rsod)| (Bits8::union(ltc, rtc), lsod + rsod))
-        }),
-    )
+    search_radius8(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+        search_radius8(rsp, rsc, rtp, radius - lsod)
+            .map(move |(rtc, rsod)| (Bits8::union(ltc, rtc), lsod + rsod))
+    })
 }
 
 /// Gets all the possible offsets in a feature that maintain a particular
@@ -123,7 +121,7 @@ pub fn search_radius8(
     sc: Bits16<u128>,
     tp: Bits32<u128>,
     radius: u32,
-) -> Box<dyn Iterator<Item = (Bits16<u128>, u32)>> {
+) -> impl Iterator<Item = (Bits16<u128>, u32)> {
     let (lsp, rsp) = sp.halve();
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
@@ -145,7 +143,6 @@ pub fn search_radius8(
 ///
 /// Returns an iterator over the (tc, sod) target children
 /// and sum of distance pairs.
-#[inline]
 pub fn search_radius4(
     sp: Bits64<u128>,
     sc: Bits32<u128>,
@@ -171,7 +168,6 @@ pub fn search_radius4(
 ///
 /// Returns an iterator over the (tc, sod) target children
 /// and sum of distance pairs.
-#[inline]
 pub fn search_radius2(
     sp: Bits128<u128>,
     sc: Bits64<u128>,
@@ -199,7 +195,6 @@ pub fn search_radius2(
 /// - `radius` - The maximum possible sum of distances (sod) of matches.
 ///
 /// Returns the iterator over (tl, tr, sod).
-#[inline]
 pub fn search_radius(
     bits: u32,
     sl: u32,

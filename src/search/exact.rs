@@ -14,7 +14,7 @@ pub fn search_exact128(
     sc: Bits1<u128>,
     tp: Bits2<u128>,
     radius: u32,
-) -> Box<dyn Iterator<Item = Bits1<u128>>> {
+) -> impl Iterator<Item = Bits1<u128>> {
     let (lsp, rsp) = sp.halve();
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
@@ -39,7 +39,7 @@ pub fn search_exact64(
     sc: Bits2<u128>,
     tp: Bits4<u128>,
     radius: u32,
-) -> Box<dyn Iterator<Item = Bits2<u128>>> {
+) -> impl Iterator<Item = Bits2<u128>> {
     let (lsp, rsp) = sp.halve();
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
@@ -64,7 +64,7 @@ pub fn search_exact32(
     sc: Bits4<u128>,
     tp: Bits8<u128>,
     radius: u32,
-) -> Box<dyn Iterator<Item = Bits4<u128>>> {
+) -> impl Iterator<Item = Bits4<u128>> {
     let (lsp, rsp) = sp.halve();
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
@@ -89,7 +89,7 @@ pub fn search_exact16(
     sc: Bits8<u128>,
     tp: Bits16<u128>,
     radius: u32,
-) -> Box<dyn Iterator<Item = Bits8<u128>>> {
+) -> impl Iterator<Item = Bits8<u128>> {
     let (lsp, rsp) = sp.halve();
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
@@ -132,7 +132,6 @@ pub fn search_exact8(
 /// - `tp` - Target parent CHF<1>
 ///
 /// Returns an iterator over the `tc` (target children).
-#[inline]
 pub fn search_exact4(
     sp: Bits64<u128>,
     sc: Bits32<u128>,
@@ -156,7 +155,6 @@ pub fn search_exact4(
 /// - `tp` - Target parent CHF<0>
 ///
 /// Returns an iterator over the `tc` target children at that radius.
-#[inline]
 pub fn search_exact2(
     sp: Bits128<u128>,
     sc: Bits64<u128>,
@@ -184,7 +182,6 @@ pub fn search_exact2(
 /// - `radius` - The exact sum of distances (sod) of matches.
 ///
 /// Returns the iterator over (tl, tr).
-#[inline]
 pub fn search_exact(
     bits: u32,
     sl: u32,

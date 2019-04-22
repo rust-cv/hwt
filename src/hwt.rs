@@ -11,7 +11,7 @@ use swar::*;
 /// this also defines the threshold at which a vector must be split into a hash table.
 ///
 /// This should be improved by changing the threshold on a per-level of the tree basis.
-const TAU: usize = 1 << 16;
+const TAU: usize = 1 << 8;
 
 /// This determines how much space is initially allocated for a leaf vector.
 const INITIAL_CAPACITY: usize = 16;
@@ -254,16 +254,16 @@ impl Hwt {
             }
             Internal::Map(m) => {
                 trace!("nearest emptying root len({})", m.len());
-                for (distance, tc, node) in m.iter().map(|&(tc, node)| {
+                for (distance, node) in m.iter().map(|&(tc, node)| {
                     let distance = (tc as i32 - indices[0] as i32).abs() as u32;
-                    (distance, tc, node)
+                    (distance, node)
                 }) {
                     match &self.internals[node as usize] {
                         Internal::Vec(v) => {
-                            leaf_queue.add_one((distance, tc, v.as_slice(), 0));
+                            leaf_queue.add_one((distance, v.as_slice(), 0));
                         }
                         Internal::Map(m) => {
-                            node_queue.add_one((distance, tc, m.as_slice(), 0));
+                            node_queue.add_one((distance, m.as_slice(), 0));
                         }
                     }
                 }
@@ -271,47 +271,9 @@ impl Hwt {
         }
 
         while !node_queue.is_empty() || !leaf_queue.is_empty() {
-            while let Some((distance, tp, internal, level)) = node_queue.pop() {
-                if level == 7 {
-                    unreachable!("hwt: it is impossible to have an internal node at layer 7");
-                }
+            while let Some((distance, leaves, level)) = leaf_queue.pop() {
                 trace!(
-                    "nearest brute force tp({:032X}) distance({}) len({}) level({})",
-                    tp,
-                    distance,
-                    internal.len(),
-                    level
-                );
-                let mut min_over_distance = 129;
-                for (child_distance, tc, child) in internal.iter().map(|&(tc, child)| {
-                    let child_distance = index_distance(tc, &indices, level + 1);
-                    (child_distance, tc, child)
-                }) {
-                    if child_distance < min_over_distance && child_distance > distance {
-                        min_over_distance = child_distance;
-                    }
-                    if child_distance == distance {
-                        match &self.internals[child as usize] {
-                            Internal::Vec(v) => {
-                                leaf_queue.add_one((child_distance, tc, v.as_slice(), level + 1));
-                            }
-                            Internal::Map(m) => {
-                                node_queue.add_one((child_distance, tc, m.as_slice(), level + 1));
-                            }
-                        }
-                    }
-                }
-                // If we found a distance in the valid range.
-                if min_over_distance < 129 {
-                    // Re-add the leaf node with a higher distance so we revisit it at that time.
-                    node_queue.add_one((min_over_distance, tp, internal, level));
-                }
-            }
-
-            while let Some((distance, tp, leaves, level)) = leaf_queue.pop() {
-                trace!(
-                    "nearest leaf vec tp({:032X}) distance({}) len({}) level({})",
-                    tp,
+                    "nearest leaf vec distance({}) len({}) level({})",
                     distance,
                     leaves.len(),
                     level
@@ -340,7 +302,43 @@ impl Hwt {
                 // If we found a distance in the valid range.
                 if min_over_distance < 129 {
                     // Re-add the leaf node with a higher distance so we revisit it at that time.
-                    leaf_queue.add_one((min_over_distance, tp, leaves, level));
+                    leaf_queue.add_one((min_over_distance, leaves, level));
+                }
+            }
+
+            if let Some((distance, internal, level)) = node_queue.pop() {
+                if level == 7 {
+                    unreachable!("hwt: it is impossible to have an internal node at layer 7");
+                }
+                trace!(
+                    "nearest brute force distance({}) len({}) level({})",
+                    distance,
+                    internal.len(),
+                    level
+                );
+                let mut min_over_distance = 129;
+                for (child_distance, child) in internal.iter().map(|&(tc, child)| {
+                    let child_distance = index_distance(tc, &indices, level + 1);
+                    (child_distance, child)
+                }) {
+                    if child_distance < min_over_distance && child_distance > distance {
+                        min_over_distance = child_distance;
+                    }
+                    if child_distance == distance {
+                        match &self.internals[child as usize] {
+                            Internal::Vec(v) => {
+                                leaf_queue.add_one((child_distance, v.as_slice(), level + 1));
+                            }
+                            Internal::Map(m) => {
+                                node_queue.add_one((child_distance, m.as_slice(), level + 1));
+                            }
+                        }
+                    }
+                }
+                // If we found a distance in the valid range.
+                if min_over_distance < 129 {
+                    // Re-add the leaf node with a higher distance so we revisit it at that time.
+                    node_queue.add_one((min_over_distance, internal, level));
                 }
             }
         }

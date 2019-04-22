@@ -18,9 +18,9 @@
 
 use std::fmt;
 
-type Distances<'a, T> = [Vec<(u128, &'a [T], u8)>; 129];
-type NodeEntry<'a> = (u32, u128, &'a [(u128, u32)], u8);
-type LeafEntry<'a> = (u32, u128, &'a [u128], u8);
+type Distances<'a, T> = [Vec<(&'a [T], u8)>; 129];
+type NodeEntry<'a> = (u32, &'a [(u128, u32)], u8);
+type LeafEntry<'a> = (u32, &'a [u128], u8);
 
 #[derive(Clone)]
 pub struct NodeQueue<'a> {
@@ -39,8 +39,8 @@ impl<'a> NodeQueue<'a> {
     #[inline]
     pub fn pop(&mut self) -> Option<NodeEntry<'a>> {
         loop {
-            if let Some((tp, node, level)) = self.distances[self.lowest].pop() {
-                return Some((self.lowest as u32, tp, node, level));
+            if let Some((node, level)) = self.distances[self.lowest].pop() {
+                return Some((self.lowest as u32, node, level));
             } else if self.lowest == 128 {
                 return None;
             } else {
@@ -51,7 +51,7 @@ impl<'a> NodeQueue<'a> {
 
     /// Takes an iterator over (distance, tp, node, level)
     #[inline]
-    pub fn add(&mut self, children: impl IntoIterator<Item = (u32, u128, &'a [(u128, u32)], u8)>) {
+    pub fn add(&mut self, children: impl IntoIterator<Item = (u32, &'a [(u128, u32)], u8)>) {
         for child in children {
             self.add_one(child);
         }
@@ -59,8 +59,8 @@ impl<'a> NodeQueue<'a> {
 
     /// Takes an iterator over (distance, tp, node, level)
     #[inline]
-    pub fn add_one(&mut self, (distance, tp, node, level): (u32, u128, &'a [(u128, u32)], u8)) {
-        self.distances[distance as usize].push((tp, node, level));
+    pub fn add_one(&mut self, (distance, node, level): NodeEntry<'a>) {
+        self.distances[distance as usize].push((node, level));
     }
 
     pub fn is_empty(&self) -> bool {
@@ -230,8 +230,8 @@ impl<'a> LeafQueue<'a> {
     #[inline]
     pub fn pop(&mut self) -> Option<LeafEntry<'a>> {
         loop {
-            if let Some((tp, node, level)) = self.distances[self.lowest].pop() {
-                return Some((self.lowest as u32, tp, node, level));
+            if let Some((node, level)) = self.distances[self.lowest].pop() {
+                return Some((self.lowest as u32, node, level));
             } else if self.lowest == 128 {
                 return None;
             } else {
@@ -242,7 +242,7 @@ impl<'a> LeafQueue<'a> {
 
     /// Takes an iterator over (distance, tp, node, level)
     #[inline]
-    pub fn add(&mut self, children: impl IntoIterator<Item = (u32, u128, &'a [u128], u8)>) {
+    pub fn add(&mut self, children: impl IntoIterator<Item = LeafEntry<'a>>) {
         for child in children {
             self.add_one(child);
         }
@@ -250,8 +250,8 @@ impl<'a> LeafQueue<'a> {
 
     /// Takes an iterator over (distance, tp, node, level)
     #[inline]
-    pub fn add_one(&mut self, (distance, tp, node, level): (u32, u128, &'a [u128], u8)) {
-        self.distances[distance as usize].push((tp, node, level));
+    pub fn add_one(&mut self, (distance, node, level): (u32, &'a [u128], u8)) {
+        self.distances[distance as usize].push((node, level));
     }
 
     pub fn is_empty(&self) -> bool {

@@ -297,5 +297,5 @@ mod hwt;
 pub mod indices;
 pub mod search;
 
-pub use hamming_queue::*;
 pub use crate::hwt::*;
+pub use hamming_queue::*;

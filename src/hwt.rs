@@ -11,10 +11,10 @@ use swar::*;
 /// this also defines the threshold at which a vector must be split into a hash table.
 ///
 /// This should be improved by changing the threshold on a per-level of the tree basis.
-const TAU: usize = 1 << 8;
+const TAU: usize = 1 << 1;
 
 /// This determines how much space is initially allocated for a leaf vector.
-const INITIAL_CAPACITY: usize = 16;
+const INITIAL_CAPACITY: usize = 1;
 
 pub(crate) type InternalMap = HashMap<u128, u32, std::hash::BuildHasherDefault<ahash::AHasher>>;
 

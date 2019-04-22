@@ -11,10 +11,10 @@ use swar::*;
 /// this also defines the threshold at which a vector must be split into a hash table.
 ///
 /// This should be improved by changing the threshold on a per-level of the tree basis.
-const TAU: usize = 1 << 1;
+const TAU: usize = 1 << 16;
 
 /// This determines how much space is initially allocated for a leaf vector.
-const INITIAL_CAPACITY: usize = 1;
+const INITIAL_CAPACITY: usize = 16;
 
 pub(crate) type InternalMap = HashMap<u128, u32, std::hash::BuildHasherDefault<ahash::AHasher>>;
 
@@ -271,42 +271,7 @@ impl Hwt {
         }
 
         while !node_queue.is_empty() || !leaf_queue.is_empty() {
-            while let Some((distance, leaves, level)) = leaf_queue.pop() {
-                trace!(
-                    "nearest leaf vec distance({}) len({}) level({})",
-                    distance,
-                    leaves.len(),
-                    level
-                );
-                // We will accumulate the minimum leaf distance over `distance`
-                // into this variable so we know when to search this leaf again.
-                let mut min_over_distance = 129;
-                // TODO: This is necessary, otherwise llvm fails to optimize this out.
-                // Raise an issue somewhere to fix this.
-                for leaf in (0..leaves.len()).map(|n| unsafe { *leaves.get_unchecked(n) }) {
-                    let leaf_distance = lookup_distance(leaf);
-                    if leaf_distance < min_over_distance && leaf_distance > distance {
-                        min_over_distance = leaf_distance;
-                    }
-                    if leaf_distance == distance {
-                        *next = leaf;
-                        match remaining.split_first_mut() {
-                            Some((new_next, new_remaining)) => {
-                                next = new_next;
-                                remaining = new_remaining;
-                            }
-                            None => return dest,
-                        };
-                    }
-                }
-                // If we found a distance in the valid range.
-                if min_over_distance < 129 {
-                    // Re-add the leaf node with a higher distance so we revisit it at that time.
-                    leaf_queue.add_one((min_over_distance, leaves, level));
-                }
-            }
-
-            if let Some((distance, internal, level)) = node_queue.pop() {
+            while let Some((distance, internal, level)) = node_queue.pop() {
                 if level == 7 {
                     unreachable!("hwt: it is impossible to have an internal node at layer 7");
                 }
@@ -339,6 +304,41 @@ impl Hwt {
                 if min_over_distance < 129 {
                     // Re-add the leaf node with a higher distance so we revisit it at that time.
                     node_queue.add_one((min_over_distance, internal, level));
+                }
+            }
+
+            while let Some((distance, leaves, level)) = leaf_queue.pop() {
+                trace!(
+                    "nearest leaf vec distance({}) len({}) level({})",
+                    distance,
+                    leaves.len(),
+                    level
+                );
+                // We will accumulate the minimum leaf distance over `distance`
+                // into this variable so we know when to search this leaf again.
+                let mut min_over_distance = 129;
+                // TODO: This is necessary, otherwise llvm fails to optimize this out.
+                // Raise an issue somewhere to fix this.
+                for leaf in (0..leaves.len()).map(|n| unsafe { *leaves.get_unchecked(n) }) {
+                    let leaf_distance = lookup_distance(leaf);
+                    if leaf_distance < min_over_distance && leaf_distance > distance {
+                        min_over_distance = leaf_distance;
+                    }
+                    if leaf_distance == distance {
+                        *next = leaf;
+                        match remaining.split_first_mut() {
+                            Some((new_next, new_remaining)) => {
+                                next = new_next;
+                                remaining = new_remaining;
+                            }
+                            None => return dest,
+                        };
+                    }
+                }
+                // If we found a distance in the valid range.
+                if min_over_distance < 129 {
+                    // Re-add the leaf node with a higher distance so we revisit it at that time.
+                    leaf_queue.add_one((min_over_distance, leaves, level));
                 }
             }
         }

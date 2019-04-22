@@ -66,6 +66,14 @@ impl<'a> NodeQueue<'a> {
     pub fn is_empty(&self) -> bool {
         self.lowest == 128 && self.distances[self.lowest].is_empty()
     }
+
+    /// Returns the distance if not empty.
+    pub fn distance(&mut self) -> Option<u32> {
+        self.distances[self.lowest..]
+            .iter()
+            .position(|v| !v.is_empty())
+            .map(|n| (n + self.lowest) as u32)
+    }
 }
 
 impl<'a> fmt::Debug for NodeQueue<'a> {
@@ -256,6 +264,14 @@ impl<'a> LeafQueue<'a> {
 
     pub fn is_empty(&self) -> bool {
         self.lowest == 128 && self.distances[self.lowest].is_empty()
+    }
+
+    /// Returns the distance if not empty.
+    pub fn distance(&mut self) -> Option<u32> {
+        self.distances[self.lowest..]
+            .iter()
+            .position(|v| !v.is_empty())
+            .map(|n| (n + self.lowest) as u32)
     }
 }
 

@@ -21,7 +21,7 @@ fn test_neighbors() {
 
     for &feature in &features {
         let mut neighbors = [0; 1];
-        let neighbors = hwt.nearest(feature, &mut neighbors);
+        let neighbors = hwt.nearest(feature, 128, &mut neighbors);
         assert_eq!(neighbors[0], feature);
     }
 
@@ -78,7 +78,7 @@ fn compare_to_linear() -> std::io::Result<()> {
 
     for f0 in search {
         let mut neighbors = [0; 1];
-        let neighbors = hwt.nearest(f0, &mut neighbors);
+        let neighbors = hwt.nearest(f0, 128, &mut neighbors);
         assert_eq!(
             space
                 .iter()

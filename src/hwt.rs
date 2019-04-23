@@ -217,11 +217,16 @@ impl Hwt {
 
     /// Find the nearest neighbors to a feature. This will give the nearest
     /// neighbors first and expand outwards. It will fill `dest` until its full
-    /// with nearest neighbors in order. `lookup` must be able to retrieve the
-    /// feature for a given leaf index.
+    /// with nearest neighbors in order or until `max_weight` is reached,
+    /// whichever comes first.
     ///
     /// Returns the slice of filled neighbors. It may not consume all of `dest`.
-    pub fn nearest<'a>(&self, feature: u128, dest: &'a mut [u128]) -> &'a mut [u128] {
+    pub fn nearest<'a>(
+        &self,
+        feature: u128,
+        max_weight: u32,
+        dest: &'a mut [u128],
+    ) -> &'a mut [u128] {
         trace!(
             "nearest feature({:032X}) weight({})",
             feature,
@@ -246,7 +251,10 @@ impl Hwt {
                 // quite relevant in many scenarios (matching two views).
                 v.sort_unstable_by_key(|&a| lookup_distance(a));
                 let final_len = std::cmp::min(destlen, v.len());
-                for (d, s) in dest.iter_mut().zip(v) {
+                for (d, s) in dest
+                    .iter_mut()
+                    .zip(v.into_iter().filter(|&a| lookup_distance(a) <= max_weight))
+                {
                     *d = s;
                 }
                 // This was the whole thing (returning here is not necessary, but faster).
@@ -254,10 +262,14 @@ impl Hwt {
             }
             Internal::Map(m) => {
                 trace!("nearest emptying root len({})", m.len());
-                for (distance, node) in m.iter().map(|&(tc, node)| {
-                    let distance = (tc as i32 - indices[0] as i32).abs() as u32;
-                    (distance, node)
-                }) {
+                for (distance, node) in m
+                    .iter()
+                    .map(|&(tc, node)| {
+                        let distance = (tc as i32 - indices[0] as i32).abs() as u32;
+                        (distance, node)
+                    })
+                    .filter(|&(distance, _)| distance <= max_weight)
+                {
                     match &self.internals[node as usize] {
                         Internal::Vec(v) => {
                             leaf_queue.add_one((distance, v.as_slice(), 0));

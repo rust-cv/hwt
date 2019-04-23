@@ -1,9 +1,17 @@
 use criterion::*;
 use hwt::*;
+use rand::distributions::{Bernoulli, Standard};
 use rand::rngs::SmallRng;
+use rand::seq::SliceRandom;
 use rand::{Rng, SeedableRng};
 use std::collections::HashMap;
 use std::iter::FromIterator;
+use std::rc::Rc;
+
+/// This is the probability each bit of an inlier will be different.
+/// The number here is based on the inlier statistics in the paper
+/// "ORB: an efficient alternative to SIFT or SURF".
+const BIT_DIFF_PROBABILITY_OF_INLIER: f64 = 0.15;
 
 fn bench_neighbors(c: &mut Criterion) {
     let space_mags = 24..=24;
@@ -12,39 +20,46 @@ fn bench_neighbors(c: &mut Criterion) {
     // Get the bigest input size and then generate all inputs from that.
     eprintln!("Generating random inputs...");
     let all_input = rng
-        .sample_iter(&rand::distributions::Standard)
+        .sample_iter(&Standard)
         .take(all_sizes.clone().rev().next().unwrap())
         .collect::<Vec<u128>>();
     let linear_all_input = all_input.clone();
-    // Sample 10000 random features for lookups.
-    let random_samples = rng
-        .sample_iter(&rand::distributions::Standard)
-        .take(10000)
-        .collect::<Vec<u128>>();
-    let linear_random_samples = random_samples.clone();
     eprintln!("Done.");
     eprintln!("Generating Hamming Weight Trees...");
-    let hwt_map = HashMap::<_, _>::from_iter(all_sizes.clone().map(|total| {
+    let bernoulli = Bernoulli::new(BIT_DIFF_PROBABILITY_OF_INLIER);
+    let hwt_map = Rc::new(HashMap::<_, _>::from_iter(all_sizes.clone().map(|total| {
         eprintln!("Generating tree size {}...", total);
-        let range = (0..).take(total);
+        let range = 0..total;
         let mut hwt = Hwt::new();
         for i in range.clone() {
             hwt.insert(all_input[i]);
         }
-        (total, hwt)
-    }));
+        let inliers: Vec<u128> = all_input[0..total]
+            .choose_multiple(&mut rng, 10000)
+            .map(|&feature| {
+                let mut feature = feature;
+                for bit in 0..128 {
+                    let choice: bool = rng.sample(&bernoulli);
+                    feature ^= (choice as u128) << bit;
+                }
+                feature
+            })
+            .collect();
+        (total, (hwt, inliers))
+    })));
+    let linear_hwt_map = hwt_map.clone();
     eprintln!("Done.");
     c.bench(
         "neighbors",
         ParameterizedBenchmark::new(
             "nearest_1_hwt",
             move |bencher: &mut Bencher, total: &usize| {
-                let hwt = &hwt_map[total];
-                let mut cycle_range = random_samples.iter().cloned().cycle();
+                let (hwt, inliers) = &hwt_map[total];
+                let mut cycle_range = inliers.iter().cloned().cycle();
                 bencher.iter(|| {
                     let feature = cycle_range.next().unwrap();
                     let mut neighbors = [0; 1];
-                    assert_eq!(hwt.nearest(feature, &mut neighbors).len(), 1);
+                    assert_eq!(hwt.nearest(feature, 128, &mut neighbors).len(), 1);
                 });
             },
             all_sizes,
@@ -52,7 +67,8 @@ fn bench_neighbors(c: &mut Criterion) {
         .with_function(
             "nearest_1_linear",
             move |bencher: &mut Bencher, &total: &usize| {
-                let mut cycle_range = linear_random_samples.iter().cloned().cycle();
+                let (_, inliers) = &linear_hwt_map[&total];
+                let mut cycle_range = inliers.iter().cloned().cycle();
                 bencher.iter(|| {
                     let feature = cycle_range.next().unwrap();
                     linear_all_input[0..total]

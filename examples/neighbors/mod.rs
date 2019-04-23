@@ -12,6 +12,7 @@ use std::rc::Rc;
 /// The number here is based on the inlier statistics in the paper
 /// "ORB: an efficient alternative to SIFT or SURF".
 const BIT_DIFF_PROBABILITY_OF_INLIER: f64 = 0.15;
+const MAXIMUM_DIFFERENCE_TO_CONSIDER: u32 = 36;
 
 fn bench_neighbors(c: &mut Criterion) {
     let space_mags = 24..=24;
@@ -59,7 +60,8 @@ fn bench_neighbors(c: &mut Criterion) {
                 bencher.iter(|| {
                     let feature = cycle_range.next().unwrap();
                     let mut neighbors = [0; 1];
-                    assert_eq!(hwt.nearest(feature, 128, &mut neighbors).len(), 1);
+                    hwt.nearest(feature, MAXIMUM_DIFFERENCE_TO_CONSIDER, &mut neighbors)
+                        .len()
                 });
             },
             all_sizes,

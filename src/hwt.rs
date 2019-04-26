@@ -295,7 +295,7 @@ impl Hwt {
                 );
                 let mut min_over_distance = 129;
                 for (child_distance, child) in internal.iter().map(|&(tc, child)| {
-                    let child_distance = index_distance(tc, &indices, level + 1);
+                    let child_distance = (tc ^ indices[(level + 1) as usize]).count_ones();
                     (child_distance, child)
                 }) {
                     if child_distance < min_over_distance && child_distance > distance {
@@ -364,10 +364,10 @@ impl Hwt {
         radius: u32,
         feature: u128,
     ) -> impl Iterator<Item = u128> + 'a {
-        let indices = indices128(feature);
+        let index = indices128(feature)[1];
         // Iterate over every applicable index in the root.
         self.bucket_scan_radius(radius, feature, 0, Self::radius2, move |tc| {
-            Bits64(tc).hwd(Bits64(indices[1])).sum_weight() as u32 <= radius
+            (tc ^ index).count_ones() <= radius
         })
     }
 
@@ -377,9 +377,9 @@ impl Hwt {
         feature: u128,
         bucket: usize,
     ) -> impl Iterator<Item = u128> + 'a {
-        let indices = indices128(feature);
+        let index = indices128(feature)[2];
         self.bucket_scan_radius(radius, feature, bucket, Self::radius4, move |tc| {
-            Bits32(tc).hwd(Bits32(indices[2])).sum_weight() as u32 <= radius
+            (tc ^ index).count_ones() <= radius
         })
     }
 
@@ -389,9 +389,9 @@ impl Hwt {
         feature: u128,
         bucket: usize,
     ) -> impl Iterator<Item = u128> + 'a {
-        let indices = indices128(feature);
+        let index = indices128(feature)[3];
         self.bucket_scan_radius(radius, feature, bucket, Self::radius8, move |tc| {
-            Bits16(tc).hwd(Bits16(indices[3])).sum_weight() as u32 <= radius
+            (tc ^ index).count_ones() <= radius
         })
     }
 
@@ -401,9 +401,9 @@ impl Hwt {
         feature: u128,
         bucket: usize,
     ) -> impl Iterator<Item = u128> + 'a {
-        let indices = indices128(feature);
+        let index = indices128(feature)[4];
         self.bucket_scan_radius(radius, feature, bucket, Self::radius16, move |tc| {
-            Bits8(tc).hwd(Bits8(indices[4])).sum_weight() as u32 <= radius
+            (tc ^ index).count_ones() <= radius
         })
     }
 
@@ -413,9 +413,9 @@ impl Hwt {
         feature: u128,
         bucket: usize,
     ) -> impl Iterator<Item = u128> + 'a {
-        let indices = indices128(feature);
+        let index = indices128(feature)[5];
         self.bucket_scan_radius(radius, feature, bucket, Self::radius32, move |tc| {
-            Bits4(tc).hwd(Bits4(indices[5])).sum_weight() as u32 <= radius
+            (tc ^ index).count_ones() <= radius
         })
     }
 
@@ -425,9 +425,9 @@ impl Hwt {
         feature: u128,
         bucket: usize,
     ) -> impl Iterator<Item = u128> + 'a {
-        let indices = indices128(feature);
+        let index = indices128(feature)[6];
         self.bucket_scan_radius(radius, feature, bucket, Self::radius64, move |tc| {
-            Bits2(tc).hwd(Bits2(indices[6])).sum_weight() as u32 <= radius
+            (tc ^ index).count_ones() <= radius
         })
     }
 
@@ -437,9 +437,9 @@ impl Hwt {
         feature: u128,
         bucket: usize,
     ) -> impl Iterator<Item = u128> + 'a {
-        let indices = indices128(feature);
+        let index = indices128(feature)[7];
         self.bucket_scan_radius(radius, feature, bucket, Self::radius128, move |tc| {
-            Bits1(tc).hwd(Bits1(indices[7])).sum_weight() as u32 <= radius
+            (tc ^ index).count_ones() <= radius
         })
     }
 

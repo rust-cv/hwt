@@ -64,7 +64,7 @@ fn compare_to_linear() -> std::io::Result<()> {
     let mut rng = SmallRng::from_seed([5; 16]);
     let space = rng
         .sample_iter(&rand::distributions::Standard)
-        .take(100_000)
+        .take(10_000)
         .collect::<Vec<u128>>();
     let search = rng
         .sample_iter(&rand::distributions::Standard)

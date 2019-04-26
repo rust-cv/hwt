@@ -317,40 +317,41 @@ impl Hwt {
                     // Re-add the leaf node with a higher distance so we revisit it at that time.
                     node_queue.add_one((min_over_distance, internal, level));
                 }
-            }
 
-            while let Some((distance, leaves, level)) = leaf_queue.pop() {
-                trace!(
-                    "nearest leaf vec distance({}) len({}) level({})",
-                    distance,
-                    leaves.len(),
-                    level
-                );
-                // We will accumulate the minimum leaf distance over `distance`
-                // into this variable so we know when to search this leaf again.
-                let mut min_over_distance = 129;
-                // TODO: This is necessary, otherwise llvm fails to optimize this out.
-                // Raise an issue somewhere to fix this.
-                for leaf in (0..leaves.len()).map(|n| unsafe { *leaves.get_unchecked(n) }) {
-                    let leaf_distance = lookup_distance(leaf);
-                    if leaf_distance < min_over_distance && leaf_distance > distance {
-                        min_over_distance = leaf_distance;
+                // After we search the node_queue, search the leaf queue.
+                while let Some((distance, leaves, level)) = leaf_queue.pop() {
+                    trace!(
+                        "nearest leaf vec distance({}) len({}) level({})",
+                        distance,
+                        leaves.len(),
+                        level
+                    );
+                    // We will accumulate the minimum leaf distance over `distance`
+                    // into this variable so we know when to search this leaf again.
+                    let mut min_over_distance = 129;
+                    // TODO: This is necessary, otherwise llvm fails to optimize this out.
+                    // Raise an issue somewhere to fix this.
+                    for leaf in (0..leaves.len()).map(|n| unsafe { *leaves.get_unchecked(n) }) {
+                        let leaf_distance = lookup_distance(leaf);
+                        if leaf_distance < min_over_distance && leaf_distance > distance {
+                            min_over_distance = leaf_distance;
+                        }
+                        if leaf_distance == distance {
+                            *next = leaf;
+                            match remaining.split_first_mut() {
+                                Some((new_next, new_remaining)) => {
+                                    next = new_next;
+                                    remaining = new_remaining;
+                                }
+                                None => return dest,
+                            };
+                        }
                     }
-                    if leaf_distance == distance {
-                        *next = leaf;
-                        match remaining.split_first_mut() {
-                            Some((new_next, new_remaining)) => {
-                                next = new_next;
-                                remaining = new_remaining;
-                            }
-                            None => return dest,
-                        };
+                    // If we found a distance in the valid range.
+                    if min_over_distance < 129 {
+                        // Re-add the leaf node with a higher distance so we revisit it at that time.
+                        leaf_queue.add_one((min_over_distance, leaves, level));
                     }
-                }
-                // If we found a distance in the valid range.
-                if min_over_distance < 129 {
-                    // Re-add the leaf node with a higher distance so we revisit it at that time.
-                    leaf_queue.add_one((min_over_distance, leaves, level));
                 }
             }
         }

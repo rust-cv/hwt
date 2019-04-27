@@ -41,6 +41,7 @@ impl NodeQueue {
         for v in self.distances.iter_mut() {
             v.clear();
         }
+        self.lowest = 0;
     }
 
     #[inline]
@@ -64,6 +65,14 @@ impl NodeQueue {
 
     pub(crate) fn is_empty(&self) -> bool {
         self.lowest == 128 && self.distances[self.lowest].is_empty()
+    }
+
+    /// Returns the distance if not empty.
+    pub(crate) fn distance(&mut self) -> Option<u32> {
+        self.distances[self.lowest..]
+            .iter()
+            .position(|v| !v.is_empty())
+            .map(|n| (n + self.lowest) as u32)
     }
 }
 
@@ -231,6 +240,7 @@ impl LeafQueue {
         for v in self.distances.iter_mut() {
             v.clear();
         }
+        self.lowest = 0;
     }
 
     #[inline]
@@ -254,6 +264,14 @@ impl LeafQueue {
 
     pub(crate) fn is_empty(&self) -> bool {
         self.lowest == 128 && self.distances[self.lowest].is_empty()
+    }
+
+    /// Returns the distance if not empty.
+    pub(crate) fn distance(&mut self) -> Option<u32> {
+        self.distances[self.lowest..]
+            .iter()
+            .position(|v| !v.is_empty())
+            .map(|n| (n + self.lowest) as u32)
     }
 }
 

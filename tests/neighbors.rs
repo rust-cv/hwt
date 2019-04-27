@@ -23,7 +23,13 @@ fn test_neighbors() {
 
     for &feature in &features {
         let mut neighbors = [0; 1];
-        let neighbors = hwt.nearest(feature, 128, &mut leaf_queue, &mut node_queue, &mut neighbors);
+        let neighbors = hwt.nearest(
+            feature,
+            128,
+            &mut leaf_queue,
+            &mut node_queue,
+            &mut neighbors,
+        );
         assert_eq!(neighbors[0], feature);
     }
 
@@ -69,7 +75,7 @@ fn compare_to_linear() -> std::io::Result<()> {
     let mut rng = SmallRng::from_seed([5; 16]);
     let space = rng
         .sample_iter(&rand::distributions::Standard)
-        .take(10_000)
+        .take(800_000)
         .collect::<Vec<u128>>();
     let search = rng
         .sample_iter(&rand::distributions::Standard)

@@ -11,7 +11,7 @@ use swar::*;
 /// this also defines the threshold at which a vector must be split into a hash table.
 ///
 /// This should be improved by changing the threshold on a per-level of the tree basis.
-const TAU: usize = 1 << 16;
+const TAU: usize = 1 << 20;
 
 /// This determines how much space is initially allocated for a leaf vector.
 const INITIAL_CAPACITY: usize = 16;
@@ -225,6 +225,8 @@ impl Hwt {
         &self,
         feature: u128,
         max_weight: u32,
+        leaf_queue: &mut LeafQueue,
+        node_queue: &mut NodeQueue,
         dest: &'a mut [u128],
     ) -> &'a mut [u128] {
         trace!(
@@ -240,8 +242,8 @@ impl Hwt {
         };
         let lookup_distance = |leaf: u128| (leaf ^ feature).count_ones();
         // Expand the root node.
-        let mut node_queue = NodeQueue::new();
-        let mut leaf_queue = LeafQueue::new();
+        node_queue.clear();
+        leaf_queue.clear();
         match &self.internals[0] {
             Internal::Vec(v) => {
                 trace!("nearest sole leaf node len({})", v.len());
@@ -270,7 +272,9 @@ impl Hwt {
                     })
                     .filter(|&(distance, _)| distance <= max_weight)
                 {
-                    match &self.internals[node as usize] {
+                    match unsafe {
+                        std::mem::transmute::<_, &'static Internal>(&self.internals[node as usize])
+                    } {
                         Internal::Vec(v) => {
                             leaf_queue.add_one((distance, v.as_slice(), 0));
                         }
@@ -302,7 +306,11 @@ impl Hwt {
                         min_over_distance = child_distance;
                     }
                     if child_distance == distance {
-                        match &self.internals[child as usize] {
+                        match unsafe {
+                            std::mem::transmute::<_, &'static Internal>(
+                                &self.internals[child as usize],
+                            )
+                        } {
                             Internal::Vec(v) => {
                                 leaf_queue.add_one((child_distance, v.as_slice(), level + 1));
                             }

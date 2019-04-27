@@ -18,17 +18,17 @@
 
 use std::fmt;
 
-type Distances<'a, T> = [Vec<(&'a [T], u8)>; 129];
-type NodeEntry<'a> = (u32, &'a [(u128, u32)], u8);
-type LeafEntry<'a> = (u32, &'a [u128], u8);
+type Distances<T> = [Vec<(&'static [T], u8)>; 129];
+type NodeEntry = (u32, &'static [(u128, u32)], u8);
+type LeafEntry = (u32, &'static [u128], u8);
 
 #[derive(Clone)]
-pub struct NodeQueue<'a> {
-    distances: Distances<'a, (u128, u32)>,
+pub struct NodeQueue {
+    distances: Distances<(u128, u32)>,
     lowest: usize,
 }
 
-impl<'a> NodeQueue<'a> {
+impl NodeQueue {
     /// Takes all the entries in the root node (level 0) and adds them to the queue.
     ///
     /// This is passed the (distance, tp, node).
@@ -36,8 +36,15 @@ impl<'a> NodeQueue<'a> {
         Default::default()
     }
 
+    /// This allows the queue to be cleared so that we don't need to reallocate memory.
+    pub(crate) fn clear(&mut self) {
+        for v in self.distances.iter_mut() {
+            v.clear();
+        }
+    }
+
     #[inline]
-    pub fn pop(&mut self) -> Option<NodeEntry<'a>> {
+    pub(crate) fn pop(&mut self) -> Option<NodeEntry> {
         loop {
             if let Some((node, level)) = self.distances[self.lowest].pop() {
                 return Some((self.lowest as u32, node, level));
@@ -51,38 +58,22 @@ impl<'a> NodeQueue<'a> {
 
     /// Takes an iterator over (distance, tp, node, level)
     #[inline]
-    pub fn add(&mut self, children: impl IntoIterator<Item = (u32, &'a [(u128, u32)], u8)>) {
-        for child in children {
-            self.add_one(child);
-        }
-    }
-
-    /// Takes an iterator over (distance, tp, node, level)
-    #[inline]
-    pub fn add_one(&mut self, (distance, node, level): NodeEntry<'a>) {
+    pub(crate) fn add_one(&mut self, (distance, node, level): NodeEntry) {
         self.distances[distance as usize].push((node, level));
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.lowest == 128 && self.distances[self.lowest].is_empty()
-    }
-
-    /// Returns the distance if not empty.
-    pub fn distance(&mut self) -> Option<u32> {
-        self.distances[self.lowest..]
-            .iter()
-            .position(|v| !v.is_empty())
-            .map(|n| (n + self.lowest) as u32)
     }
 }
 
-impl<'a> fmt::Debug for NodeQueue<'a> {
+impl fmt::Debug for NodeQueue {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         self.distances[..].fmt(formatter)
     }
 }
 
-impl<'a> Default for NodeQueue<'a> {
+impl Default for NodeQueue {
     fn default() -> Self {
         Self {
             distances: [
@@ -222,12 +213,12 @@ impl<'a> Default for NodeQueue<'a> {
 }
 
 #[derive(Clone)]
-pub struct LeafQueue<'a> {
-    distances: Distances<'a, u128>,
+pub struct LeafQueue {
+    distances: Distances<u128>,
     lowest: usize,
 }
 
-impl<'a> LeafQueue<'a> {
+impl LeafQueue {
     /// Takes all the entries in the root node (level 0) and adds them to the queue.
     ///
     /// This is passed the (distance, tp, node).
@@ -235,8 +226,15 @@ impl<'a> LeafQueue<'a> {
         Default::default()
     }
 
+    /// This allows the queue to be cleared so that we don't need to reallocate memory.
+    pub(crate) fn clear(&mut self) {
+        for v in self.distances.iter_mut() {
+            v.clear();
+        }
+    }
+
     #[inline]
-    pub fn pop(&mut self) -> Option<LeafEntry<'a>> {
+    pub(crate) fn pop(&mut self) -> Option<LeafEntry> {
         loop {
             if let Some((node, level)) = self.distances[self.lowest].pop() {
                 return Some((self.lowest as u32, node, level));
@@ -250,38 +248,22 @@ impl<'a> LeafQueue<'a> {
 
     /// Takes an iterator over (distance, tp, node, level)
     #[inline]
-    pub fn add(&mut self, children: impl IntoIterator<Item = LeafEntry<'a>>) {
-        for child in children {
-            self.add_one(child);
-        }
-    }
-
-    /// Takes an iterator over (distance, tp, node, level)
-    #[inline]
-    pub fn add_one(&mut self, (distance, node, level): (u32, &'a [u128], u8)) {
+    pub(crate) fn add_one(&mut self, (distance, node, level): (u32, &'static [u128], u8)) {
         self.distances[distance as usize].push((node, level));
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.lowest == 128 && self.distances[self.lowest].is_empty()
-    }
-
-    /// Returns the distance if not empty.
-    pub fn distance(&mut self) -> Option<u32> {
-        self.distances[self.lowest..]
-            .iter()
-            .position(|v| !v.is_empty())
-            .map(|n| (n + self.lowest) as u32)
     }
 }
 
-impl<'a> fmt::Debug for LeafQueue<'a> {
+impl fmt::Debug for LeafQueue {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         self.distances[..].fmt(formatter)
     }
 }
 
-impl<'a> Default for LeafQueue<'a> {
+impl Default for LeafQueue {
     fn default() -> Self {
         Self {
             distances: [

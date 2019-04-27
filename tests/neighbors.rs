@@ -7,6 +7,8 @@ use std::path::PathBuf;
 
 #[test]
 fn test_neighbors() {
+    let mut leaf_queue = LeafQueue::new();
+    let mut node_queue = NodeQueue::new();
     let features = [
         0b1001,
         0b1010,
@@ -21,7 +23,7 @@ fn test_neighbors() {
 
     for &feature in &features {
         let mut neighbors = [0; 1];
-        let neighbors = hwt.nearest(feature, 128, &mut neighbors);
+        let neighbors = hwt.nearest(feature, 128, &mut leaf_queue, &mut node_queue, &mut neighbors);
         assert_eq!(neighbors[0], feature);
     }
 
@@ -61,6 +63,9 @@ fn compare_to_linear() -> std::io::Result<()> {
     eprintln!("logging in {}", log_file.display());
     simple_logging::log_to_file(&log_file, LevelFilter::Trace)?;
 
+    let mut leaf_queue = LeafQueue::new();
+    let mut node_queue = NodeQueue::new();
+
     let mut rng = SmallRng::from_seed([5; 16]);
     let space = rng
         .sample_iter(&rand::distributions::Standard)
@@ -78,7 +83,7 @@ fn compare_to_linear() -> std::io::Result<()> {
 
     for f0 in search {
         let mut neighbors = [0; 1];
-        let neighbors = hwt.nearest(f0, 128, &mut neighbors);
+        let neighbors = hwt.nearest(f0, 128, &mut leaf_queue, &mut node_queue, &mut neighbors);
         assert_eq!(
             space
                 .iter()

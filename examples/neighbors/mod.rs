@@ -15,7 +15,7 @@ const BIT_DIFF_PROBABILITY_OF_INLIER: f64 = 0.15;
 const MAXIMUM_DIFFERENCE_TO_CONSIDER: u32 = 36;
 
 fn bench_neighbors(c: &mut Criterion) {
-    let space_mags = 26..=26;
+    let space_mags = 0..=28;
     let all_sizes = (space_mags).map(|n| 2usize.pow(n));
     let mut rng = SmallRng::from_seed([5; 16]);
     // Get the bigest input size and then generate all inputs from that.
@@ -57,11 +57,19 @@ fn bench_neighbors(c: &mut Criterion) {
             move |bencher: &mut Bencher, total: &usize| {
                 let (hwt, inliers) = &hwt_map[total];
                 let mut cycle_range = inliers.iter().cloned().cycle();
+                let mut node_queue = NodeQueue::new();
+                let mut leaf_queue = LeafQueue::new();
                 bencher.iter(|| {
                     let feature = cycle_range.next().unwrap();
                     let mut neighbors = [0; 1];
-                    hwt.nearest(feature, MAXIMUM_DIFFERENCE_TO_CONSIDER, &mut neighbors)
-                        .len()
+                    hwt.nearest(
+                        feature,
+                        MAXIMUM_DIFFERENCE_TO_CONSIDER,
+                        &mut leaf_queue,
+                        &mut node_queue,
+                        &mut neighbors,
+                    )
+                    .len()
                 });
             },
             all_sizes,

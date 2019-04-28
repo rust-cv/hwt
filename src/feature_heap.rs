@@ -29,7 +29,7 @@ impl FeatureHeap {
 
     /// Update the minimum distance we are searching at.
     pub(crate) fn search_distance(&mut self, distance: u32) {
-        assert!(distance > self.search_distance);
+        assert!(distance >= self.search_distance);
         self.in_search += self.features[self.search_distance as usize + 1..=distance as usize]
             .iter()
             .map(Vec::len)
@@ -75,8 +75,8 @@ impl FeatureHeap {
     }
 
     #[inline(always)]
-    pub(crate) fn in_search(&self) -> usize {
-        self.in_search
+    pub(crate) fn done(&self) -> bool {
+        self.in_search >= self.cap
     }
 
     pub(crate) fn fill_slice<'a>(&self, s: &'a mut [u128]) -> &'a mut [u128] {

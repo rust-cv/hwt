@@ -1,7 +1,7 @@
 use crate::indices::*;
-use crate::{LeafQueue, NodeQueue, FeatureHeap};
+use crate::{FeatureHeap, NodeQueue};
 use hashbrown::HashMap;
-use log::{info, trace};
+use log::trace;
 use swar::*;
 
 /// This threshold determines whether to perform a brute-force search in a bucket
@@ -226,7 +226,6 @@ impl Hwt {
         &self,
         feature: u128,
         max_weight: u32,
-        leaf_queue: &mut LeafQueue,
         node_queue: &mut NodeQueue,
         feature_heap: &mut FeatureHeap,
         dest: &'a mut [u128],
@@ -236,33 +235,17 @@ impl Hwt {
             feature,
             feature.count_ones()
         );
-        let destlen = dest.len();
         let indices = indices128(feature);
-        let (mut next, mut remaining) = match dest.split_first_mut() {
-            Some(n) => n,
-            None => return dest,
-        };
-        let lookup_distance = |leaf: u128| (leaf ^ feature).count_ones();
         // Expand the root node.
         node_queue.clear();
-        leaf_queue.clear();
+        feature_heap.reset(dest.len(), feature);
         match &self.internals[0] {
             Internal::Vec(v) => {
                 trace!("nearest sole leaf node len({})", v.len());
-                let mut v = v.clone();
-                // TODO: Benchmark sorting by cached key as well since
-                // the performance of a small hamming weight tree is actually
-                // quite relevant in many scenarios (matching two views).
-                v.sort_unstable_by_key(|&a| lookup_distance(a));
-                let final_len = std::cmp::min(destlen, v.len());
-                for (d, s) in dest
-                    .iter_mut()
-                    .zip(v.into_iter().filter(|&a| lookup_distance(a) <= max_weight))
-                {
-                    *d = s;
+                for &f in v {
+                    feature_heap.add(f);
                 }
-                // This was the whole thing (returning here is not necessary, but faster).
-                return &mut dest[0..final_len];
+                return feature_heap.fill_slice(dest);
             }
             Internal::Map(m) => {
                 trace!("nearest emptying root len({})", m.len());
@@ -278,7 +261,12 @@ impl Hwt {
                         std::mem::transmute::<_, &'static Internal>(&self.internals[node as usize])
                     } {
                         Internal::Vec(v) => {
-                            leaf_queue.add_one((distance, v.as_slice(), 0));
+                            for &f in v {
+                                feature_heap.add(f);
+                            }
+                            if feature_heap.done() {
+                                return feature_heap.fill_slice(dest);
+                            }
                         }
                         Internal::Map(m) => {
                             node_queue.add_one((distance, m.as_slice(), 0));
@@ -290,47 +278,10 @@ impl Hwt {
 
         for distance in 0..=128 {
             trace!("searching distance({})", distance);
-            // After we search the node_queue, search the leaf queue.
-            trace!("leaf queue distance({:?})", leaf_queue.distance());
-            while leaf_queue.distance() == Some(distance) {
-                if let Some((_, leaves, level)) = leaf_queue.pop() {
-                    trace!(
-                        "nearest leaf vec distance({}) len({}) level({})",
-                        distance,
-                        leaves.len(),
-                        level
-                    );
-                    // We will accumulate the minimum leaf distance over `distance`
-                    // into this variable so we know when to search this leaf again.
-                    let mut min_over_distance = 129;
-                    // TODO: This is necessary, otherwise llvm fails to optimize this out.
-                    // Raise an issue somewhere to fix this.
-                    for leaf in (0..leaves.len()).map(|n| unsafe { *leaves.get_unchecked(n) }) {
-                        let leaf_distance = lookup_distance(leaf);
-                        if leaf_distance < min_over_distance && leaf_distance > distance {
-                            min_over_distance = leaf_distance;
-                        }
-                        if leaf_distance == distance {
-                            info!("found feature({:032X})", leaf);
-                            *next = leaf;
-                            match remaining.split_first_mut() {
-                                Some((new_next, new_remaining)) => {
-                                    next = new_next;
-                                    remaining = new_remaining;
-                                }
-                                None => return dest,
-                            };
-                        }
-                    }
-                    // If we found a distance in the valid range.
-                    if min_over_distance < 129 {
-                        trace!("leaf got min_over_distance({})", min_over_distance);
-                        // Re-add the leaf node with a higher distance so we revisit it at that time.
-                        leaf_queue.add_one((min_over_distance, leaves, level));
-                    }
-                }
+            feature_heap.search_distance(distance);
+            if feature_heap.done() {
+                return feature_heap.fill_slice(dest);
             }
-            trace!("node queue distance({:?})", node_queue.distance());
             while node_queue.distance() == Some(distance) {
                 if let Some((_, internal, level)) = node_queue.pop() {
                     if level == 7 {
@@ -356,8 +307,13 @@ impl Hwt {
                                     &self.internals[child as usize],
                                 )
                             } {
-                                Internal::Vec(v) => {
-                                    leaf_queue.add_one((child_distance, v.as_slice(), level + 1));
+                                Internal::Vec(leaves) => {
+                                    for &f in leaves {
+                                        feature_heap.add(f);
+                                    }
+                                    if feature_heap.done() {
+                                        return feature_heap.fill_slice(dest);
+                                    }
                                 }
                                 Internal::Map(m) => {
                                     node_queue.add_one((child_distance, m.as_slice(), level + 1));
@@ -371,55 +327,10 @@ impl Hwt {
                         // Re-add the leaf node with a higher distance so we revisit it at that time.
                         node_queue.add_one((min_over_distance, internal, level));
                     }
-
-                    // After we search the node_queue, search the leaf queue.
-                    while leaf_queue.distance() == Some(distance) {
-                        if let Some((_, leaves, level)) = leaf_queue.pop() {
-                            trace!(
-                                "nearest leaf vec distance({}) len({}) level({})",
-                                distance,
-                                leaves.len(),
-                                level
-                            );
-                            // We will accumulate the minimum leaf distance over `distance`
-                            // into this variable so we know when to search this leaf again.
-                            let mut min_over_distance = 129;
-                            // TODO: This is necessary, otherwise llvm fails to optimize this out.
-                            // Raise an issue somewhere to fix this.
-                            for leaf in
-                                (0..leaves.len()).map(|n| unsafe { *leaves.get_unchecked(n) })
-                            {
-                                let leaf_distance = lookup_distance(leaf);
-                                if leaf_distance < min_over_distance && leaf_distance > distance {
-                                    min_over_distance = leaf_distance;
-                                }
-                                if leaf_distance == distance {
-                                    info!("found feature({:032X})", leaf);
-                                    *next = leaf;
-                                    match remaining.split_first_mut() {
-                                        Some((new_next, new_remaining)) => {
-                                            next = new_next;
-                                            remaining = new_remaining;
-                                        }
-                                        None => return dest,
-                                    };
-                                }
-                            }
-                            // If we found a distance in the valid range.
-                            if min_over_distance < 129 {
-                                trace!("leaf got min_over_distance({})", min_over_distance);
-                                // Re-add the leaf node with a higher distance so we revisit it at that time.
-                                leaf_queue.add_one((min_over_distance, leaves, level));
-                            }
-                        }
-                    }
                 }
             }
         }
-        // Add one because the dest was not filled.
-        let remlen = remaining.len() + 1;
-        trace!("searched everything remaining({})", remlen);
-        &mut dest[0..destlen - remlen]
+        feature_heap.fill_slice(dest)
     }
 
     /// Find all neighbors within a given radius.

@@ -58,15 +58,15 @@ fn bench_neighbors(c: &mut Criterion) {
                 let (hwt, inliers) = &hwt_map[total];
                 let mut cycle_range = inliers.iter().cloned().cycle();
                 let mut node_queue = NodeQueue::new();
-                let mut leaf_queue = LeafQueue::new();
+                let mut feature_heap = FeatureHeap::new();
                 bencher.iter(|| {
                     let feature = cycle_range.next().unwrap();
                     let mut neighbors = [0; 1];
                     hwt.nearest(
                         feature,
                         MAXIMUM_DIFFERENCE_TO_CONSIDER,
-                        &mut leaf_queue,
                         &mut node_queue,
+                        &mut feature_heap,
                         &mut neighbors,
                     )
                     .len()

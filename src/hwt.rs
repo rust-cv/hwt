@@ -1,5 +1,5 @@
 use crate::indices::*;
-use crate::{LeafQueue, NodeQueue};
+use crate::{LeafQueue, NodeQueue, FeatureHeap};
 use hashbrown::HashMap;
 use log::{info, trace};
 use swar::*;
@@ -228,6 +228,7 @@ impl Hwt {
         max_weight: u32,
         leaf_queue: &mut LeafQueue,
         node_queue: &mut NodeQueue,
+        feature_heap: &mut FeatureHeap,
         dest: &'a mut [u128],
     ) -> &'a mut [u128] {
         trace!(

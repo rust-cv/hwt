@@ -22,7 +22,8 @@ pub fn search_exact128(
 
     Box::new(
         search_radius64(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-            search_exact64(bits, rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits1::union(ltc, rtc))
+            search_exact64(bits, rsp, rsc, rtp, radius - lsod)
+                .map(move |rtc| Bits1::union(ltc, rtc))
         }),
     )
 }
@@ -48,7 +49,8 @@ pub fn search_exact64(
 
     Box::new(
         search_radius32(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-            search_exact32(bits, rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits2::union(ltc, rtc))
+            search_exact32(bits, rsp, rsc, rtp, radius - lsod)
+                .map(move |rtc| Bits2::union(ltc, rtc))
         }),
     )
 }
@@ -74,7 +76,8 @@ pub fn search_exact32(
 
     Box::new(
         search_radius16(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-            search_exact16(bits, rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits4::union(ltc, rtc))
+            search_exact16(bits, rsp, rsc, rtp, radius - lsod)
+                .map(move |rtc| Bits4::union(ltc, rtc))
         }),
     )
 }
@@ -169,11 +172,11 @@ pub fn search_exact2(
     radius: u32,
 ) -> impl Iterator<Item = Bits64<u128>> {
     // Get the number of ones in the search word.
-    let sw = dbg!(sp.count_ones());
+    let sw = sp.count_ones();
     // Get the number of ones in the left half.
-    let sl = dbg!((sc >> 64).count_ones());
+    let sl = (sc >> 64).count_ones();
     // Get the number of ones in the target word.
-    let tw = dbg!(tp.count_ones());
+    let tw = tp.count_ones();
 
     search_exact(bits, sl, sw, tw, radius)
         .map(|[tl, tr]| Bits64(((1 << tl) - 1) << 64 | ((1 << tr) - 1)))
@@ -200,8 +203,8 @@ pub fn search_exact(
     // documentation. Read that before messing with this code.
 
     // Compute the `max` and `min` for `tl` range.
-    let max = dbg!(std::cmp::min(tw, bits));
-    let min = dbg!(tw - max);
+    let max = std::cmp::min(tw, bits);
+    let min = tw - max;
 
     let filter = move |&tl: &i32| tl >= min as i32 && tl <= max as i32;
 
@@ -222,8 +225,8 @@ pub fn search_exact(
     if bottom_distance == radius {
         // We intersect at the flat bottom, so get the inflection points
         // and use them to create the flat range.
-        let inflection1 = dbg!(sl);
-        let inflection2 = dbg!(tw - (sw - sl));
+        let inflection1 = sl;
+        let inflection2 = tw - (sw - sl);
         let min_inflection = std::cmp::min(inflection1, inflection2);
         let max_inflection = std::cmp::max(inflection1, inflection2);
         either::Left(min_inflection..=max_inflection)
@@ -231,15 +234,15 @@ pub fn search_exact(
             .map(map)
     } else if bottom_distance < radius {
         // We intersect at precisely two locations.
-        let start = dbg!((-radius + c + 1) / 2);
-        let end = dbg!((radius + c) / 2);
+        let start = (-radius + c + 1) / 2;
+        let end = (radius + c) / 2;
 
         either::Right(std::iter::once(start).chain(std::iter::once(end)))
             .filter(filter)
             .map(map)
     } else {
         // Create fake iterators to satisfy the type system.
-        let flat = dbg!(0..=-1);
+        let flat = 0..=-1;
 
         // Also perform the same operations over here.
         either::Left(flat).filter(filter).map(map)

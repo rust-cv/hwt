@@ -4,12 +4,12 @@ use rand::{Rng, SeedableRng};
 use swar::*;
 
 #[test]
-fn test2() {
+fn test_search2() {
     // Generate some random features.
     let mut rng = SmallRng::from_seed([5; 16]);
     let space = rng
         .sample_iter(&rand::distributions::Standard)
-        .take(80_000)
+        .take(8_000)
         .collect::<Vec<u128>>();
     let search = rng
         .sample_iter(&rand::distributions::Standard)
@@ -37,6 +37,18 @@ fn test2() {
                     exact_tc,
                     sc.0
                 );
+            }
+
+            assert!(search_radius2(sp, sc, tp, distance).any(|(exact_tc, _)| exact_tc == tc));
+            for (Bits64(exact_tc), sod) in search_radius2(sp, sc, tp, distance) {
+                assert_eq!(
+                    (exact_tc ^ sc.0).count_ones(),
+                    sod,
+                    "got {:032X} against {:032X}",
+                    exact_tc,
+                    sc.0
+                );
+                assert!(sod <= distance);
             }
         }
     }

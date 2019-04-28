@@ -12,7 +12,7 @@ use std::rc::Rc;
 /// The number here is based on the inlier statistics in the paper
 /// "ORB: an efficient alternative to SIFT or SURF".
 const BIT_DIFF_PROBABILITY_OF_INLIER: f64 = 0.15;
-const MAXIMUM_DIFFERENCE_TO_CONSIDER: u32 = 36;
+const MAXIMUM_DISTANCE_ERROR: u32 = 0;
 
 fn bench_neighbors(c: &mut Criterion) {
     let space_mags = 24..=24;
@@ -49,11 +49,12 @@ fn bench_neighbors(c: &mut Criterion) {
         (total, (hwt, inliers))
     })));
     let linear_hwt_map = hwt_map.clone();
+    let maxerr_5_hwt_map = hwt_map.clone();
     eprintln!("Done.");
     c.bench(
         "neighbors",
         ParameterizedBenchmark::new(
-            "nearest_1_hwt",
+            "nearest_1_hwt_maxerr_0",
             move |bencher: &mut Bencher, total: &usize| {
                 let (hwt, inliers) = &hwt_map[total];
                 let mut cycle_range = inliers.iter().cloned().cycle();
@@ -64,7 +65,8 @@ fn bench_neighbors(c: &mut Criterion) {
                     let mut neighbors = [0; 1];
                     hwt.nearest(
                         feature,
-                        MAXIMUM_DIFFERENCE_TO_CONSIDER,
+                        128,
+                        0,
                         &mut node_queue,
                         &mut feature_heap,
                         &mut neighbors,
@@ -74,6 +76,26 @@ fn bench_neighbors(c: &mut Criterion) {
             },
             all_sizes,
         )
+        .with_function("nearest_1_hwt_maxerr_5",
+            move |bencher: &mut Bencher, total: &usize| {
+                let (hwt, inliers) = &maxerr_5_hwt_map[total];
+                let mut cycle_range = inliers.iter().cloned().cycle();
+                let mut node_queue = NodeQueue::new();
+                let mut feature_heap = FeatureHeap::new();
+                bencher.iter(|| {
+                    let feature = cycle_range.next().unwrap();
+                    let mut neighbors = [0; 1];
+                    hwt.nearest(
+                        feature,
+                        128,
+                        5,
+                        &mut node_queue,
+                        &mut feature_heap,
+                        &mut neighbors,
+                    )
+                    .len()
+                });
+            },)
         .with_function(
             "nearest_1_linear",
             move |bencher: &mut Bencher, &total: &usize| {

@@ -26,6 +26,7 @@ fn test_neighbors() {
         let neighbors = hwt.nearest(
             feature,
             128,
+            0,
             &mut node_queue,
             &mut feature_heap,
             &mut neighbors,
@@ -88,15 +89,79 @@ fn compare_to_linear() -> std::io::Result<()> {
     }
 
     for f0 in search {
-        let mut neighbors = [0; 1];
-        let neighbors = hwt.nearest(f0, 128, &mut node_queue, &mut feature_heap, &mut neighbors);
+        let mut neighbors_err0 = [0; 1];
+        let neighbors_err0 = hwt.nearest(
+            f0,
+            128,
+            0,
+            &mut node_queue,
+            &mut feature_heap,
+            &mut neighbors_err0,
+        );
+        let mut neighbors_err1 = [0; 1];
+        let neighbors_err1 = hwt.nearest(
+            f0,
+            128,
+            1,
+            &mut node_queue,
+            &mut feature_heap,
+            &mut neighbors_err1,
+        );
+        let mut neighbors_err2 = [0; 1];
+        let neighbors_err2 = hwt.nearest(
+            f0,
+            128,
+            2,
+            &mut node_queue,
+            &mut feature_heap,
+            &mut neighbors_err2,
+        );
+        let mut neighbors_err3 = [0; 1];
+        let neighbors_err3 = hwt.nearest(
+            f0,
+            128,
+            3,
+            &mut node_queue,
+            &mut feature_heap,
+            &mut neighbors_err3,
+        );
         assert_eq!(
             space
                 .iter()
                 .map(|&f1| (f0 ^ f1).count_ones())
                 .min()
                 .unwrap(),
-            (neighbors[0] ^ f0).count_ones()
+            (neighbors_err0[0] ^ f0).count_ones()
+        );
+
+        assert!(
+            space
+                .iter()
+                .map(|&f1| (f0 ^ f1).count_ones())
+                .min()
+                .unwrap()
+                + 1
+                >= (neighbors_err1[0] ^ f0).count_ones()
+        );
+
+        assert!(
+            space
+                .iter()
+                .map(|&f1| (f0 ^ f1).count_ones())
+                .min()
+                .unwrap()
+                + 2
+                >= (neighbors_err2[0] ^ f0).count_ones()
+        );
+
+        assert!(
+            space
+                .iter()
+                .map(|&f1| (f0 ^ f1).count_ones())
+                .min()
+                .unwrap()
+                + 3
+                >= (neighbors_err3[0] ^ f0).count_ones()
         );
     }
 

@@ -10,7 +10,7 @@ use swar::*;
 ///
 /// Since we do a brute force search in an internal node with < `TAU` leaves,
 /// this also defines the threshold at which a vector must be split into a hash table.
-const TAU: usize = 1 << 12;
+const TAU: usize = 1 << 16;
 
 /// The threshold at which we change to precision search for each level of the tree.
 /// The reason this is different for each level is that `search_exact2` and
@@ -225,14 +225,25 @@ impl Hwt {
     /// Find the nearest neighbors to a feature. This will give the nearest
     /// neighbors first and expand outwards. It will fill `dest` until its full
     /// with nearest neighbors in order or until `max_weight` is reached,
-    /// whichever comes first.
+    /// whichever comes first. `max_error` specifies the level of weight error
+    /// allowed in the output. If it is set to `0` it will always perform
+    /// an exact nearest-neighbor search. Any other number will allow this
+    /// method to end once it has retrieved enough features at the current
+    /// search weight and up to `max_error` above the weight. These
+    /// features are much more likely to be nearest neighbors, but there
+    /// are no guarantees that they are, since we haven't exhausted all
+    /// possible locations in the search tree.
     ///
-    /// Returns the slice of filled neighbors. It may not consume all of `dest`.
+    /// Returns the slice of filled neighbors. It may consume only
+    /// part of `dest` if less neighbors are found than `dest`. It
+    /// stops searching at `max_weight`, but might obtain features
+    /// beyond that and still gives them to the user.
     #[allow(clippy::cognitive_complexity)]
     pub fn nearest<'a>(
         &self,
         feature: u128,
         max_weight: u32,
+        max_error: u32,
         node_queue: &mut NodeQueue,
         feature_heap: &mut FeatureHeap,
         dest: &'a mut [u128],
@@ -285,7 +296,10 @@ impl Hwt {
 
         for distance in 0..=max_weight {
             trace!("searching distance({})", distance);
-            feature_heap.search_distance(distance);
+            // Tell the feature heap we are searching at the max error distance
+            // so that once we have found enough features within the error, then
+            // we are done.
+            feature_heap.search_distance(std::cmp::min(128, distance + max_error));
             if feature_heap.done() {
                 return feature_heap.fill_slice(dest);
             }

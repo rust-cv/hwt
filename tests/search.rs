@@ -27,12 +27,21 @@ fn test_search2() {
             let tc = Bits64(tindices[1]);
 
             let distance = (t ^ s).count_ones();
+            let child_distance = (sc.0 ^ tc.0).count_ones();
 
-            assert!(search_exact2(sp, sc, tp, distance).any(|exact_tc| exact_tc == tc));
-            for Bits64(exact_tc) in search_exact2(sp, sc, tp, distance) {
+            assert!(
+                search_exact2(sp, sc, tp, child_distance).any(|exact_tc| exact_tc == tc),
+                "sp({:032X}) sc({:032X}) tp({:032X}) distance({}) expected tc({:032X})",
+                sp.0,
+                sc.0,
+                tp.0,
+                child_distance,
+                tc.0
+            );
+            for Bits64(exact_tc) in search_exact2(sp, sc, tp, child_distance) {
                 assert_eq!(
                     (exact_tc ^ sc.0).count_ones(),
-                    distance,
+                    child_distance,
                     "got {:032X} against {:032X}",
                     exact_tc,
                     sc.0
@@ -40,6 +49,7 @@ fn test_search2() {
             }
 
             assert!(search_radius2(sp, sc, tp, distance).any(|(exact_tc, _)| exact_tc == tc));
+            assert!(search_radius2(sp, sc, tp, distance + 1).any(|(exact_tc, _)| exact_tc == tc));
             for (Bits64(exact_tc), sod) in search_radius2(sp, sc, tp, distance) {
                 assert_eq!(
                     (exact_tc ^ sc.0).count_ones(),

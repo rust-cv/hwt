@@ -228,8 +228,10 @@ pub fn search_radius(
         )
     };
 
+    let bottom_distance = (tw - sw).abs();
+
     // Check if we intersect.
-    if ((radius + c) / 2 - sl).abs() + (tw - (radius + c) / 2 - sw + sl).abs() <= radius {
+    if bottom_distance <= radius {
         // We do, so run the ranges.
         let start = (-radius + c + 1) / 2;
         let inflection1 = sl;

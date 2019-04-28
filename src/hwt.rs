@@ -283,7 +283,7 @@ impl Hwt {
             }
         }
 
-        for distance in 0..=128 {
+        for distance in 0..=max_weight {
             trace!("searching distance({})", distance);
             feature_heap.search_distance(distance);
             if feature_heap.done() {

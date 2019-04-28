@@ -10,6 +10,7 @@ use swar::*;
 ///
 /// Returns an iterator over the `tc` (target children).
 pub fn search_exact128(
+    bits: u32,
     sp: Bits2<u128>,
     sc: Bits1<u128>,
     tp: Bits2<u128>,
@@ -20,8 +21,8 @@ pub fn search_exact128(
     let (ltp, rtp) = tp.halve();
 
     Box::new(
-        search_radius64(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-            search_exact64(rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits1::union(ltc, rtc))
+        search_radius64(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+            search_exact64(bits, rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits1::union(ltc, rtc))
         }),
     )
 }
@@ -35,6 +36,7 @@ pub fn search_exact128(
 ///
 /// Returns an iterator over the `tc` (target children).
 pub fn search_exact64(
+    bits: u32,
     sp: Bits4<u128>,
     sc: Bits2<u128>,
     tp: Bits4<u128>,
@@ -45,8 +47,8 @@ pub fn search_exact64(
     let (ltp, rtp) = tp.halve();
 
     Box::new(
-        search_radius32(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-            search_exact32(rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits2::union(ltc, rtc))
+        search_radius32(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+            search_exact32(bits, rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits2::union(ltc, rtc))
         }),
     )
 }
@@ -60,6 +62,7 @@ pub fn search_exact64(
 ///
 /// Returns an iterator over the `tc` (target children).
 pub fn search_exact32(
+    bits: u32,
     sp: Bits8<u128>,
     sc: Bits4<u128>,
     tp: Bits8<u128>,
@@ -70,8 +73,8 @@ pub fn search_exact32(
     let (ltp, rtp) = tp.halve();
 
     Box::new(
-        search_radius16(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-            search_exact16(rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits4::union(ltc, rtc))
+        search_radius16(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+            search_exact16(bits, rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits4::union(ltc, rtc))
         }),
     )
 }
@@ -85,6 +88,7 @@ pub fn search_exact32(
 ///
 /// Returns an iterator over the `tc` (target children).
 pub fn search_exact16(
+    bits: u32,
     sp: Bits16<u128>,
     sc: Bits8<u128>,
     tp: Bits16<u128>,
@@ -95,8 +99,8 @@ pub fn search_exact16(
     let (ltp, rtp) = tp.halve();
 
     Box::new(
-        search_radius8(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-            search_exact8(rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits8::union(ltc, rtc))
+        search_radius8(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+            search_exact8(bits, rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits8::union(ltc, rtc))
         }),
     )
 }
@@ -110,6 +114,7 @@ pub fn search_exact16(
 ///
 /// Returns an iterator over the `tc` (target children).
 pub fn search_exact8(
+    bits: u32,
     sp: Bits32<u128>,
     sc: Bits16<u128>,
     tp: Bits32<u128>,
@@ -119,8 +124,8 @@ pub fn search_exact8(
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
 
-    search_radius4(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-        search_exact4(rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits16::union(ltc, rtc))
+    search_radius4(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+        search_exact4(bits, rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits16::union(ltc, rtc))
     })
 }
 
@@ -133,6 +138,7 @@ pub fn search_exact8(
 ///
 /// Returns an iterator over the `tc` (target children).
 pub fn search_exact4(
+    bits: u32,
     sp: Bits64<u128>,
     sc: Bits32<u128>,
     tp: Bits64<u128>,
@@ -142,8 +148,8 @@ pub fn search_exact4(
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
 
-    search_radius2(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-        search_exact2(rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits32::union(ltc, rtc))
+    search_radius2(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+        search_exact2(bits, rsp, rsc, rtp, radius - lsod).map(move |rtc| Bits32::union(ltc, rtc))
     })
 }
 
@@ -156,6 +162,7 @@ pub fn search_exact4(
 ///
 /// Returns an iterator over the `tc` target children at that radius.
 pub fn search_exact2(
+    bits: u32,
     sp: Bits128<u128>,
     sc: Bits64<u128>,
     tp: Bits128<u128>,
@@ -168,7 +175,7 @@ pub fn search_exact2(
     // Get the number of ones in the target word.
     let tw = dbg!(tp.count_ones());
 
-    search_exact(64, sl, sw, tw, radius)
+    search_exact(bits, sl, sw, tw, radius)
         .map(|[tl, tr]| Bits64(((1 << tl) - 1) << 64 | ((1 << tr) - 1)))
 }
 

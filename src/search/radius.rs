@@ -11,6 +11,7 @@ use swar::*;
 /// Returns an iterator over the (tc, sod) target children
 /// and sum of distance pairs.
 pub fn search_radius128(
+    bits: u32,
     sp: Bits2<u128>,
     sc: Bits1<u128>,
     tp: Bits2<u128>,
@@ -21,8 +22,8 @@ pub fn search_radius128(
     let (ltp, rtp) = tp.halve();
 
     Box::new(
-        search_radius64(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-            search_radius64(rsp, rsc, rtp, radius - lsod)
+        search_radius64(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+            search_radius64(bits, rsp, rsc, rtp, radius - lsod)
                 .map(move |(rtc, rsod)| (Bits1::union(ltc, rtc), lsod + rsod))
         }),
     )
@@ -38,6 +39,7 @@ pub fn search_radius128(
 /// Returns an iterator over the (tc, sod) target children
 /// and sum of distance pairs.
 pub fn search_radius64(
+    bits: u32,
     sp: Bits4<u128>,
     sc: Bits2<u128>,
     tp: Bits4<u128>,
@@ -48,8 +50,8 @@ pub fn search_radius64(
     let (ltp, rtp) = tp.halve();
 
     Box::new(
-        search_radius32(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-            search_radius32(rsp, rsc, rtp, radius - lsod)
+        search_radius32(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+            search_radius32(bits, rsp, rsc, rtp, radius - lsod)
                 .map(move |(rtc, rsod)| (Bits2::union(ltc, rtc), lsod + rsod))
         }),
     )
@@ -65,6 +67,7 @@ pub fn search_radius64(
 /// Returns an iterator over the (tc, sod) target children
 /// and sum of distance pairs.
 pub fn search_radius32(
+    bits: u32,
     sp: Bits8<u128>,
     sc: Bits4<u128>,
     tp: Bits8<u128>,
@@ -75,8 +78,8 @@ pub fn search_radius32(
     let (ltp, rtp) = tp.halve();
 
     Box::new(
-        search_radius16(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-            search_radius16(rsp, rsc, rtp, radius - lsod)
+        search_radius16(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+            search_radius16(bits, rsp, rsc, rtp, radius - lsod)
                 .map(move |(rtc, rsod)| (Bits4::union(ltc, rtc), lsod + rsod))
         }),
     )
@@ -92,6 +95,7 @@ pub fn search_radius32(
 /// Returns an iterator over the (tc, sod) target children
 /// and sum of distance pairs.
 pub fn search_radius16(
+    bits: u32,
     sp: Bits16<u128>,
     sc: Bits8<u128>,
     tp: Bits16<u128>,
@@ -101,8 +105,8 @@ pub fn search_radius16(
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
 
-    search_radius8(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-        search_radius8(rsp, rsc, rtp, radius - lsod)
+    search_radius8(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+        search_radius8(bits, rsp, rsc, rtp, radius - lsod)
             .map(move |(rtc, rsod)| (Bits8::union(ltc, rtc), lsod + rsod))
     })
 }
@@ -117,6 +121,7 @@ pub fn search_radius16(
 /// Returns an iterator over the (tc, sod) target children
 /// and sum of distance pairs.
 pub fn search_radius8(
+    bits: u32,
     sp: Bits32<u128>,
     sc: Bits16<u128>,
     tp: Bits32<u128>,
@@ -127,8 +132,8 @@ pub fn search_radius8(
     let (ltp, rtp) = tp.halve();
 
     Box::new(
-        search_radius4(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-            search_radius4(rsp, rsc, rtp, radius - lsod)
+        search_radius4(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+            search_radius4(bits, rsp, rsc, rtp, radius - lsod)
                 .map(move |(rtc, rsod)| (Bits16::union(ltc, rtc), lsod + rsod))
         }),
     )
@@ -144,6 +149,7 @@ pub fn search_radius8(
 /// Returns an iterator over the (tc, sod) target children
 /// and sum of distance pairs.
 pub fn search_radius4(
+    bits: u32,
     sp: Bits64<u128>,
     sc: Bits32<u128>,
     tp: Bits64<u128>,
@@ -153,8 +159,8 @@ pub fn search_radius4(
     let (lsc, rsc) = sc.halve();
     let (ltp, rtp) = tp.halve();
 
-    search_radius2(lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
-        search_radius2(rsp, rsc, rtp, radius - lsod)
+    search_radius2(bits, lsp, lsc, ltp, radius).flat_map(move |(ltc, lsod)| {
+        search_radius2(bits, rsp, rsc, rtp, radius - lsod)
             .map(move |(rtc, rsod)| (Bits32::union(ltc, rtc), lsod + rsod))
     })
 }
@@ -169,6 +175,7 @@ pub fn search_radius4(
 /// Returns an iterator over the (tc, sod) target children
 /// and sum of distance pairs.
 pub fn search_radius2(
+    bits: u32,
     sp: Bits128<u128>,
     sc: Bits64<u128>,
     tp: Bits128<u128>,
@@ -181,7 +188,7 @@ pub fn search_radius2(
     // Get the number of ones in the target word.
     let tw = tp.count_ones();
 
-    search_radius(64, sl, sw, tw, radius)
+    search_radius(bits, sl, sw, tw, radius)
         .map(|([tl, tr], sod)| (Bits64(((1 << tl) - 1) << 64 | ((1 << tr) - 1)), sod))
 }
 

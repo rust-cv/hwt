@@ -331,6 +331,7 @@ impl Hwt {
                             0 => {
                                 let tp = Bits64(*internal.iter().next().unwrap().0).pack_ones();
                                 for Bits64(tc) in search_exact2(
+                                    64,
                                     Bits128(indices[level as usize]),
                                     Bits64(indices[level as usize + 1]),
                                     tp,
@@ -364,6 +365,7 @@ impl Hwt {
                             1 => {
                                 let tp = Bits32(*internal.iter().next().unwrap().0).pack_ones();
                                 for Bits32(tc) in search_exact4(
+                                    32,
                                     Bits64(indices[level as usize]),
                                     Bits32(indices[level as usize + 1]),
                                     tp,
@@ -397,6 +399,7 @@ impl Hwt {
                             2 => {
                                 let tp = Bits16(*internal.iter().next().unwrap().0).pack_ones();
                                 for Bits16(tc) in search_exact8(
+                                    16,
                                     Bits32(indices[level as usize]),
                                     Bits16(indices[level as usize + 1]),
                                     tp,
@@ -430,6 +433,7 @@ impl Hwt {
                             3 => {
                                 let tp = Bits8(*internal.iter().next().unwrap().0).pack_ones();
                                 for Bits8(tc) in search_exact16(
+                                    8,
                                     Bits16(indices[level as usize]),
                                     Bits8(indices[level as usize + 1]),
                                     tp,
@@ -463,6 +467,7 @@ impl Hwt {
                             4 => {
                                 let tp = Bits4(*internal.iter().next().unwrap().0).pack_ones();
                                 for Bits4(tc) in search_exact32(
+                                    4,
                                     Bits8(indices[level as usize]),
                                     Bits4(indices[level as usize + 1]),
                                     tp,
@@ -496,6 +501,7 @@ impl Hwt {
                             5 => {
                                 let tp = Bits2(*internal.iter().next().unwrap().0).pack_ones();
                                 for Bits2(tc) in search_exact64(
+                                    2,
                                     Bits4(indices[level as usize]),
                                     Bits2(indices[level as usize + 1]),
                                     tp,
@@ -529,6 +535,7 @@ impl Hwt {
                             6 => {
                                 let tp = Bits1(*internal.iter().next().unwrap().0).pack_ones();
                                 for Bits1(tc) in search_exact128(
+                                    1,
                                     Bits2(indices[level as usize]),
                                     Bits1(indices[level as usize + 1]),
                                     tp,

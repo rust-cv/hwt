@@ -292,10 +292,12 @@
 //! algorithm will make us test all of those places in the space if they have
 //! tables in the tree.
 
+mod feature_heap;
 mod hamming_queue;
 mod hwt;
 pub mod indices;
 pub mod search;
 
 pub use crate::hwt::*;
+pub use feature_heap::*;
 pub use hamming_queue::*;

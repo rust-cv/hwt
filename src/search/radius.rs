@@ -175,11 +175,11 @@ pub fn search_radius2(
     radius: u32,
 ) -> impl Iterator<Item = (Bits64<u128>, u32)> {
     // Get the number of ones in the search word.
-    let sw = sp.0 as u32;
+    let sw = sp.count_ones();
     // Get the number of ones in the left half.
-    let sl = (sc.0 >> 64) as u32;
+    let sl = (sc >> 64).count_ones();
     // Get the number of ones in the target word.
-    let tw = tp.0 as u32;
+    let tw = tp.count_ones();
 
     search_radius(64, sl, sw, tw, radius)
         .map(|([tl, tr], sod)| (Bits64(((1 << tl) - 1) << 64 | ((1 << tr) - 1)), sod))
@@ -187,7 +187,7 @@ pub fn search_radius2(
 
 /// Iterator over the indices that fall within a radius of a number.
 ///
-/// - `bits` - The number of bits the that make up the bit substring `sl`
+/// - `bits` - The number of bits that make up the bit substring `sl`
 ///     comes from.
 /// - `sl` - The weight of the left half of the search number.
 /// - `sw` - The weight of the whole search number.

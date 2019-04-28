@@ -1,4 +1,5 @@
 use crate::indices::*;
+use crate::search::*;
 use crate::{FeatureHeap, NodeQueue};
 use hashbrown::HashMap;
 use log::trace;
@@ -9,9 +10,15 @@ use swar::*;
 ///
 /// Since we do a brute force search in an internal node with < `TAU` leaves,
 /// this also defines the threshold at which a vector must be split into a hash table.
-///
-/// This should be improved by changing the threshold on a per-level of the tree basis.
 const TAU: usize = 1 << 12;
+
+/// The threshold at which we change to precision search for each level of the tree.
+/// The reason this is different for each level is that `search_exact2` and
+/// `search_exact128` have very different execution times. Higher in the tree,
+/// it is cheaper to do an exact or radius search, but lower in the tree it becomes
+/// incredibly expensive. Thus, this should start low and get higher so that the
+/// threshold corresponds to execution complexity of the search.
+const TABLE_TAUS: [usize; 7] = [0, 0, 0, 0, 0, 0, 0];
 
 /// This determines how much space is initially allocated for a leaf vector.
 const INITIAL_CAPACITY: usize = 16;
@@ -221,6 +228,7 @@ impl Hwt {
     /// whichever comes first.
     ///
     /// Returns the slice of filled neighbors. It may not consume all of `dest`.
+    #[allow(clippy::cognitive_complexity)]
     pub fn nearest<'a>(
         &self,
         feature: u128,
@@ -286,32 +294,276 @@ impl Hwt {
                     if level == 7 {
                         unreachable!("hwt: it is impossible to have an internal node at layer 7");
                     }
+
                     trace!(
-                        "nearest brute force distance({}) len({}) level({})",
+                        "nearest node distance({}) len({}) level({})",
                         distance,
                         internal.len(),
                         level
                     );
-                    for (child_distance, child) in internal.iter().map(|(&tc, &child)| {
-                        let child_distance = (tc ^ indices[(level + 1) as usize]).count_ones();
-                        (child_distance, child)
-                    }) {
-                        match unsafe {
-                            std::mem::transmute::<_, &'static Internal>(
-                                &self.internals[child as usize],
-                            )
-                        } {
-                            Internal::Vec(leaves) => {
-                                for &f in leaves {
-                                    feature_heap.add(f);
+                    if internal.len() < TABLE_TAUS[level as usize] {
+                        trace!("nearest brute force");
+                        for (child_distance, child) in internal.iter().map(|(&tc, &child)| {
+                            let child_distance = (tc ^ indices[(level + 1) as usize]).count_ones();
+                            (child_distance, child)
+                        }) {
+                            match unsafe {
+                                std::mem::transmute::<_, &'static Internal>(
+                                    &self.internals[child as usize],
+                                )
+                            } {
+                                Internal::Vec(leaves) => {
+                                    for &f in leaves {
+                                        feature_heap.add(f);
+                                    }
+                                    if feature_heap.done() {
+                                        return feature_heap.fill_slice(dest);
+                                    }
                                 }
-                                if feature_heap.done() {
-                                    return feature_heap.fill_slice(dest);
+                                Internal::Map(m) => {
+                                    node_queue.add_one((child_distance, &m, level + 1));
                                 }
                             }
-                            Internal::Map(m) => {
-                                node_queue.add_one((child_distance, &m, level + 1));
+                        }
+                    } else {
+                        trace!("nearest precision search");
+                        match level {
+                            0 => {
+                                let tp = Bits64(*internal.iter().next().unwrap().0).pack_ones();
+                                for Bits64(tc) in search_exact2(
+                                    Bits128(indices[level as usize]),
+                                    Bits64(indices[level as usize + 1]),
+                                    tp,
+                                    distance,
+                                ) {
+                                    if let Some(&child) = internal.get(&tc) {
+                                        match unsafe {
+                                            std::mem::transmute::<_, &'static Internal>(
+                                                &self.internals[child as usize],
+                                            )
+                                        } {
+                                            Internal::Vec(leaves) => {
+                                                trace!("nearest leaves len({})", leaves.len());
+                                                for &f in leaves {
+                                                    feature_heap.add(f);
+                                                }
+                                                if feature_heap.done() {
+                                                    return feature_heap.fill_slice(dest);
+                                                }
+                                            }
+                                            Internal::Map(m) => {
+                                                trace!("nearest map len({})", m.len());
+                                                let child_distance =
+                                                    (tc ^ indices[level as usize + 1]).count_ones();
+                                                node_queue.add_one((child_distance, &m, level + 1));
+                                            }
+                                        }
+                                    }
+                                }
                             }
+                            1 => {
+                                let tp = Bits32(*internal.iter().next().unwrap().0).pack_ones();
+                                for Bits32(tc) in search_exact4(
+                                    Bits64(indices[level as usize]),
+                                    Bits32(indices[level as usize + 1]),
+                                    tp,
+                                    distance,
+                                ) {
+                                    if let Some(&child) = internal.get(&tc) {
+                                        match unsafe {
+                                            std::mem::transmute::<_, &'static Internal>(
+                                                &self.internals[child as usize],
+                                            )
+                                        } {
+                                            Internal::Vec(leaves) => {
+                                                trace!("nearest leaves len({})", leaves.len());
+                                                for &f in leaves {
+                                                    feature_heap.add(f);
+                                                }
+                                                if feature_heap.done() {
+                                                    return feature_heap.fill_slice(dest);
+                                                }
+                                            }
+                                            Internal::Map(m) => {
+                                                trace!("nearest map len({})", m.len());
+                                                let child_distance =
+                                                    (tc ^ indices[level as usize + 1]).count_ones();
+                                                node_queue.add_one((child_distance, &m, level + 1));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            2 => {
+                                let tp = Bits16(*internal.iter().next().unwrap().0).pack_ones();
+                                for Bits16(tc) in search_exact8(
+                                    Bits32(indices[level as usize]),
+                                    Bits16(indices[level as usize + 1]),
+                                    tp,
+                                    distance,
+                                ) {
+                                    if let Some(&child) = internal.get(&tc) {
+                                        match unsafe {
+                                            std::mem::transmute::<_, &'static Internal>(
+                                                &self.internals[child as usize],
+                                            )
+                                        } {
+                                            Internal::Vec(leaves) => {
+                                                trace!("nearest leaves len({})", leaves.len());
+                                                for &f in leaves {
+                                                    feature_heap.add(f);
+                                                }
+                                                if feature_heap.done() {
+                                                    return feature_heap.fill_slice(dest);
+                                                }
+                                            }
+                                            Internal::Map(m) => {
+                                                trace!("nearest map len({})", m.len());
+                                                let child_distance =
+                                                    (tc ^ indices[level as usize + 1]).count_ones();
+                                                node_queue.add_one((child_distance, &m, level + 1));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            3 => {
+                                let tp = Bits8(*internal.iter().next().unwrap().0).pack_ones();
+                                for Bits8(tc) in search_exact16(
+                                    Bits16(indices[level as usize]),
+                                    Bits8(indices[level as usize + 1]),
+                                    tp,
+                                    distance,
+                                ) {
+                                    if let Some(&child) = internal.get(&tc) {
+                                        match unsafe {
+                                            std::mem::transmute::<_, &'static Internal>(
+                                                &self.internals[child as usize],
+                                            )
+                                        } {
+                                            Internal::Vec(leaves) => {
+                                                trace!("nearest leaves len({})", leaves.len());
+                                                for &f in leaves {
+                                                    feature_heap.add(f);
+                                                }
+                                                if feature_heap.done() {
+                                                    return feature_heap.fill_slice(dest);
+                                                }
+                                            }
+                                            Internal::Map(m) => {
+                                                trace!("nearest map len({})", m.len());
+                                                let child_distance =
+                                                    (tc ^ indices[level as usize + 1]).count_ones();
+                                                node_queue.add_one((child_distance, &m, level + 1));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            4 => {
+                                let tp = Bits4(*internal.iter().next().unwrap().0).pack_ones();
+                                for Bits4(tc) in search_exact32(
+                                    Bits8(indices[level as usize]),
+                                    Bits4(indices[level as usize + 1]),
+                                    tp,
+                                    distance,
+                                ) {
+                                    if let Some(&child) = internal.get(&tc) {
+                                        match unsafe {
+                                            std::mem::transmute::<_, &'static Internal>(
+                                                &self.internals[child as usize],
+                                            )
+                                        } {
+                                            Internal::Vec(leaves) => {
+                                                trace!("nearest leaves len({})", leaves.len());
+                                                for &f in leaves {
+                                                    feature_heap.add(f);
+                                                }
+                                                if feature_heap.done() {
+                                                    return feature_heap.fill_slice(dest);
+                                                }
+                                            }
+                                            Internal::Map(m) => {
+                                                trace!("nearest map len({})", m.len());
+                                                let child_distance =
+                                                    (tc ^ indices[level as usize + 1]).count_ones();
+                                                node_queue.add_one((child_distance, &m, level + 1));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            5 => {
+                                let tp = Bits2(*internal.iter().next().unwrap().0).pack_ones();
+                                for Bits2(tc) in search_exact64(
+                                    Bits4(indices[level as usize]),
+                                    Bits2(indices[level as usize + 1]),
+                                    tp,
+                                    distance,
+                                ) {
+                                    if let Some(&child) = internal.get(&tc) {
+                                        match unsafe {
+                                            std::mem::transmute::<_, &'static Internal>(
+                                                &self.internals[child as usize],
+                                            )
+                                        } {
+                                            Internal::Vec(leaves) => {
+                                                trace!("nearest leaves len({})", leaves.len());
+                                                for &f in leaves {
+                                                    feature_heap.add(f);
+                                                }
+                                                if feature_heap.done() {
+                                                    return feature_heap.fill_slice(dest);
+                                                }
+                                            }
+                                            Internal::Map(m) => {
+                                                trace!("nearest map len({})", m.len());
+                                                let child_distance =
+                                                    (tc ^ indices[level as usize + 1]).count_ones();
+                                                node_queue.add_one((child_distance, &m, level + 1));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            6 => {
+                                let tp = Bits1(*internal.iter().next().unwrap().0).pack_ones();
+                                for Bits1(tc) in search_exact128(
+                                    Bits2(indices[level as usize]),
+                                    Bits1(indices[level as usize + 1]),
+                                    tp,
+                                    distance,
+                                ) {
+                                    if let Some(&child) = internal.get(&tc) {
+                                        match unsafe {
+                                            std::mem::transmute::<_, &'static Internal>(
+                                                &self.internals[child as usize],
+                                            )
+                                        } {
+                                            Internal::Vec(leaves) => {
+                                                trace!("nearest leaves len({})", leaves.len());
+                                                for &f in leaves {
+                                                    feature_heap.add(f);
+                                                }
+                                                if feature_heap.done() {
+                                                    return feature_heap.fill_slice(dest);
+                                                }
+                                            }
+                                            Internal::Map(m) => {
+                                                trace!("nearest map len({})", m.len());
+                                                let child_distance =
+                                                    (tc ^ indices[level as usize + 1]).count_ones();
+                                                node_queue.add_one((child_distance, &m, level + 1));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            _ => unreachable!(),
+                        }
+                        // Add the internal back at the next possible distance.
+                        if distance != 128 {
+                            node_queue.add_one((distance + 1, internal, level));
                         }
                     }
                 }

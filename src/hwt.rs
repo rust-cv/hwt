@@ -23,7 +23,7 @@ enum Internal {
     /// This always contains features.
     Vec(Vec<u128>),
     /// This always points to another internal node.
-    Map(Vec<(u128, u32)>),
+    Map(InternalMap),
 }
 
 impl Default for Internal {
@@ -146,8 +146,8 @@ impl Hwt {
                     return;
                 }
                 Internal::Map(ref mut map) => {
-                    match map.iter().find(|&&(tc_leaf, _)| tc == tc_leaf) {
-                        Some(&(_, internal)) => {
+                    match map.iter().find(|&(&tc_leaf, _)| tc == tc_leaf) {
+                        Some((_, &internal)) => {
                             // Go to the next node.
                             bucket = internal as usize;
                         }
@@ -170,7 +170,7 @@ impl Hwt {
             }
             // Add the new internal to the vacant map spot.
             if let Internal::Map(ref mut map) = &mut self.internals[bucket] {
-                map.push((vacant_node, new_internal));
+                map.insert(vacant_node, new_internal);
             } else {
                 unreachable!("shouldn't ever get vec after finding vacant map node");
             }
@@ -204,7 +204,7 @@ impl Hwt {
             match &self.internals[bucket] {
                 Internal::Vec(vec) => return vec.iter().cloned().any(|n| n == feature),
                 Internal::Map(map) => {
-                    if let Some(&(_, internal)) = map.iter().find(|&&(tc, _)| tc == index) {
+                    if let Some((_, &internal)) = map.iter().find(|&(&tc, _)| tc == index) {
                         bucket = internal as usize;
                     } else {
                         return false;
@@ -250,7 +250,7 @@ impl Hwt {
                 trace!("nearest emptying root len({})", m.len());
                 for (distance, node) in m
                     .iter()
-                    .map(|&(tc, node)| {
+                    .map(|(&tc, &node)| {
                         let distance = (tc ^ indices[0]).count_ones();
                         (distance, node)
                     })
@@ -268,7 +268,7 @@ impl Hwt {
                             }
                         }
                         Internal::Map(m) => {
-                            node_queue.add_one((distance, m.as_slice(), 0));
+                            node_queue.add_one((distance, &m, 0));
                         }
                     }
                 }
@@ -292,7 +292,7 @@ impl Hwt {
                         internal.len(),
                         level
                     );
-                    for (child_distance, child) in internal.iter().map(|&(tc, child)| {
+                    for (child_distance, child) in internal.iter().map(|(&tc, &child)| {
                         let child_distance = (tc ^ indices[(level + 1) as usize]).count_ones();
                         (child_distance, child)
                     }) {
@@ -310,7 +310,7 @@ impl Hwt {
                                 }
                             }
                             Internal::Map(m) => {
-                                node_queue.add_one((child_distance, m.as_slice(), level + 1));
+                                node_queue.add_one((child_distance, &m, level + 1));
                             }
                         }
                     }
@@ -453,8 +453,8 @@ impl Hwt {
             ),
             Internal::Map(m) => Box::new(
                 m.iter()
-                    .filter(move |&&(key, _)| filter(key))
-                    .flat_map(move |&(_, node)| subtable(self, radius, feature, node as usize)),
+                    .filter(move |&(&key, _)| filter(key))
+                    .flat_map(move |(_, &node)| subtable(self, radius, feature, node as usize)),
             ),
         }
     }

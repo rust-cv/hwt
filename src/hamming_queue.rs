@@ -17,13 +17,14 @@
 //! a removal below or equal to 64.
 
 use std::fmt;
+use crate::InternalMap;
 
-type Distances<T> = [Vec<(&'static [T], u8)>; 129];
-type NodeEntry = (u32, &'static [(u128, u32)], u8);
+type Distances = [Vec<(&'static InternalMap, u8)>; 129];
+type NodeEntry = (u32, &'static InternalMap, u8);
 
 #[derive(Clone)]
 pub struct NodeQueue {
-    distances: Distances<(u128, u32)>,
+    distances: Distances,
     lowest: usize,
 }
 

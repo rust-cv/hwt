@@ -169,7 +169,7 @@ pub fn search_exact2(
     let tw = tp.0 as u32;
 
     search_exact(64, sl, sw, tw, radius)
-        .map(|[tl, tr]| Bits64(u128::from(tl) << 64 | u128::from(tr)))
+        .map(|[tl, tr]| Bits64(((1 << tl) - 1) << 64 | ((1 << tr) - 1)))
 }
 
 /// Iterator over the indices that fall within a radius of a number.

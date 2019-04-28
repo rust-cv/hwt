@@ -182,7 +182,7 @@ pub fn search_radius2(
     let tw = tp.0 as u32;
 
     search_radius(64, sl, sw, tw, radius)
-        .map(|([tl, tr], sod)| (Bits64(u128::from(tl) << 64 | u128::from(tr)), sod))
+        .map(|([tl, tr], sod)| (Bits64(((1 << tl) - 1) << 64 | ((1 << tr) - 1)), sod))
 }
 
 /// Iterator over the indices that fall within a radius of a number.

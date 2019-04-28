@@ -11,7 +11,7 @@ use swar::*;
 /// this also defines the threshold at which a vector must be split into a hash table.
 ///
 /// This should be improved by changing the threshold on a per-level of the tree basis.
-const TAU: usize = 1 << 16;
+const TAU: usize = 1 << 12;
 
 /// This determines how much space is initially allocated for a leaf vector.
 const INITIAL_CAPACITY: usize = 16;
@@ -221,7 +221,6 @@ impl Hwt {
     /// whichever comes first.
     ///
     /// Returns the slice of filled neighbors. It may not consume all of `dest`.
-    #[allow(clippy::cognitive_complexity)]
     pub fn nearest<'a>(
         &self,
         feature: u128,
@@ -293,39 +292,27 @@ impl Hwt {
                         internal.len(),
                         level
                     );
-                    let mut min_over_distance = 129;
                     for (child_distance, child) in internal.iter().map(|&(tc, child)| {
                         let child_distance = (tc ^ indices[(level + 1) as usize]).count_ones();
                         (child_distance, child)
                     }) {
-                        if child_distance < min_over_distance && child_distance > distance {
-                            min_over_distance = child_distance;
-                        }
-                        if child_distance == distance {
-                            match unsafe {
-                                std::mem::transmute::<_, &'static Internal>(
-                                    &self.internals[child as usize],
-                                )
-                            } {
-                                Internal::Vec(leaves) => {
-                                    for &f in leaves {
-                                        feature_heap.add(f);
-                                    }
-                                    if feature_heap.done() {
-                                        return feature_heap.fill_slice(dest);
-                                    }
+                        match unsafe {
+                            std::mem::transmute::<_, &'static Internal>(
+                                &self.internals[child as usize],
+                            )
+                        } {
+                            Internal::Vec(leaves) => {
+                                for &f in leaves {
+                                    feature_heap.add(f);
                                 }
-                                Internal::Map(m) => {
-                                    node_queue.add_one((child_distance, m.as_slice(), level + 1));
+                                if feature_heap.done() {
+                                    return feature_heap.fill_slice(dest);
                                 }
                             }
+                            Internal::Map(m) => {
+                                node_queue.add_one((child_distance, m.as_slice(), level + 1));
+                            }
                         }
-                    }
-                    // If we found a distance in the valid range.
-                    if min_over_distance < 129 {
-                        trace!("node got min_over_distance({})", min_over_distance);
-                        // Re-add the leaf node with a higher distance so we revisit it at that time.
-                        node_queue.add_one((min_over_distance, internal, level));
                     }
                 }
             }

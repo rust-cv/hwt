@@ -18,7 +18,16 @@ const TAU: usize = 1 << 16;
 /// it is cheaper to do an exact or radius search, but lower in the tree it becomes
 /// incredibly expensive. Thus, this should start low and get higher so that the
 /// threshold corresponds to execution complexity of the search.
-const TABLE_TAUS: [usize; 7] = [0, 0, 0, 0, 0, 0, 0];
+const TABLE_TAUS: [usize; 7] = [
+    START_TAU_MAG,
+    START_TAU_MAG << 1,
+    START_TAU_MAG << 2,
+    START_TAU_MAG << 2,
+    START_TAU_MAG << 3,
+    START_TAU_MAG << 5,
+    START_TAU_MAG << 6,
+];
+const START_TAU_MAG: usize = 128;
 
 /// This determines how much space is initially allocated for a leaf vector.
 const INITIAL_CAPACITY: usize = 16;

@@ -1,3 +1,5 @@
+use packed_simd::{u128x4, u8x4, Cast};
+
 pub struct FeatureHeap {
     cap: usize,
     size: usize,
@@ -39,7 +41,40 @@ impl FeatureHeap {
 
     /// Add a feature to the search.
     #[inline(always)]
-    pub(crate) fn add(&mut self, feature: u128) {
+    pub(crate) fn add(&mut self, features: &[u128]) {
+        if self.size != self.cap {
+            // If we aren't at the cap, every new feature gets inserted,
+            // so SIMD would just slow us down.
+            for &feature in features {
+                self.add_one(feature);
+            }
+        } else {
+            let mut chunks = features.chunks_exact(4);
+            let search = u128x4::splat(self.search);
+            let mut worst = u8x4::splat(self.worst as u8);
+            features.len();
+            for chunk in &mut chunks {
+                let feature = u128x4::from_slice_unaligned(chunk);
+                let distance: u8x4 = (feature ^ search).count_ones().cast();
+                // If anything is less than the worst.
+                if (distance - worst).bitmask() != 0 {
+                    // Do the normal horizontal version.
+                    for &feature in chunk {
+                        self.add_one_cap(feature);
+                        // Update the worst vector (since it may have changed).
+                        worst = u8x4::splat(self.worst as u8);
+                    }
+                }
+            }
+            for &feature in chunks.remainder() {
+                self.add_one_cap(feature);
+            }
+        }
+    }
+
+    /// Add a feature to the search.
+    #[inline(always)]
+    pub(crate) fn add_one(&mut self, feature: u128) {
         let distance = (feature ^ self.search).count_ones();
         // We stop searching once we have enough features under the search distance,
         // so if this is true it will always get added to the FeatureHeap.
@@ -54,6 +89,21 @@ impl FeatureHeap {
                 self.update_worst();
             }
         } else if distance < self.worst {
+            self.features[distance as usize].push(feature);
+            self.remove_worst();
+        }
+    }
+
+    /// Add a feature to the search with the precondition we are already at the cap.
+    #[inline(always)]
+    fn add_one_cap(&mut self, feature: u128) {
+        let distance = (feature ^ self.search).count_ones();
+        // We stop searching once we have enough features under the search distance,
+        // so if this is true it will always get added to the FeatureHeap.
+        if distance < self.worst {
+            if distance <= self.search_distance {
+                self.in_search += 1;
+            }
             self.features[distance as usize].push(feature);
             self.remove_worst();
         }

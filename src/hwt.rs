@@ -269,9 +269,7 @@ impl Hwt {
         match &self.internals[0] {
             Internal::Vec(v) => {
                 trace!("nearest sole leaf node len({})", v.len());
-                for &f in v {
-                    feature_heap.add(f);
-                }
+                feature_heap.add(v.as_slice());
                 return feature_heap.fill_slice(dest);
             }
             Internal::Map(m) => {
@@ -288,9 +286,7 @@ impl Hwt {
                         std::mem::transmute::<_, &'static Internal>(&self.internals[node as usize])
                     } {
                         Internal::Vec(v) => {
-                            for &f in v {
-                                feature_heap.add(f);
-                            }
+                            feature_heap.add(v.as_slice());
                             if feature_heap.done() {
                                 return feature_heap.fill_slice(dest);
                             }
@@ -336,9 +332,7 @@ impl Hwt {
                                 )
                             } {
                                 Internal::Vec(leaves) => {
-                                    for &f in leaves {
-                                        feature_heap.add(f);
-                                    }
+                                    feature_heap.add(leaves.as_slice());
                                     if feature_heap.done() {
                                         return feature_heap.fill_slice(dest);
                                     }
@@ -368,9 +362,7 @@ impl Hwt {
                                         } {
                                             Internal::Vec(leaves) => {
                                                 trace!("nearest leaves len({})", leaves.len());
-                                                for &f in leaves {
-                                                    feature_heap.add(f);
-                                                }
+                                                feature_heap.add(leaves.as_slice());
                                                 if feature_heap.done() {
                                                     return feature_heap.fill_slice(dest);
                                                 }
@@ -402,9 +394,7 @@ impl Hwt {
                                         } {
                                             Internal::Vec(leaves) => {
                                                 trace!("nearest leaves len({})", leaves.len());
-                                                for &f in leaves {
-                                                    feature_heap.add(f);
-                                                }
+                                                feature_heap.add(leaves.as_slice());
                                                 if feature_heap.done() {
                                                     return feature_heap.fill_slice(dest);
                                                 }
@@ -436,9 +426,7 @@ impl Hwt {
                                         } {
                                             Internal::Vec(leaves) => {
                                                 trace!("nearest leaves len({})", leaves.len());
-                                                for &f in leaves {
-                                                    feature_heap.add(f);
-                                                }
+                                                feature_heap.add(leaves.as_slice());
                                                 if feature_heap.done() {
                                                     return feature_heap.fill_slice(dest);
                                                 }
@@ -470,9 +458,7 @@ impl Hwt {
                                         } {
                                             Internal::Vec(leaves) => {
                                                 trace!("nearest leaves len({})", leaves.len());
-                                                for &f in leaves {
-                                                    feature_heap.add(f);
-                                                }
+                                                feature_heap.add(leaves.as_slice());
                                                 if feature_heap.done() {
                                                     return feature_heap.fill_slice(dest);
                                                 }
@@ -504,9 +490,7 @@ impl Hwt {
                                         } {
                                             Internal::Vec(leaves) => {
                                                 trace!("nearest leaves len({})", leaves.len());
-                                                for &f in leaves {
-                                                    feature_heap.add(f);
-                                                }
+                                                feature_heap.add(leaves.as_slice());
                                                 if feature_heap.done() {
                                                     return feature_heap.fill_slice(dest);
                                                 }
@@ -538,9 +522,7 @@ impl Hwt {
                                         } {
                                             Internal::Vec(leaves) => {
                                                 trace!("nearest leaves len({})", leaves.len());
-                                                for &f in leaves {
-                                                    feature_heap.add(f);
-                                                }
+                                                feature_heap.add(leaves.as_slice());
                                                 if feature_heap.done() {
                                                     return feature_heap.fill_slice(dest);
                                                 }
@@ -572,9 +554,7 @@ impl Hwt {
                                         } {
                                             Internal::Vec(leaves) => {
                                                 trace!("nearest leaves len({})", leaves.len());
-                                                for &f in leaves {
-                                                    feature_heap.add(f);
-                                                }
+                                                feature_heap.add(leaves.as_slice());
                                                 if feature_heap.done() {
                                                     return feature_heap.fill_slice(dest);
                                                 }

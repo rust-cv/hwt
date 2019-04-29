@@ -52,7 +52,6 @@ impl FeatureHeap {
             let mut chunks = features.chunks_exact(4);
             let search = u128x4::splat(self.search);
             let mut worst = u8x4::splat(self.worst as u8);
-            features.len();
             for chunk in &mut chunks {
                 let feature = u128x4::from_slice_unaligned(chunk);
                 let distance: u8x4 = (feature ^ search).count_ones().cast();

@@ -162,8 +162,8 @@ impl Hwt {
                     return;
                 }
                 Internal::Map(ref mut map) => {
-                    match map.iter().find(|&(&tc_leaf, _)| tc == tc_leaf) {
-                        Some((_, &internal)) => {
+                    match map.get(&tc) {
+                        Some(&internal) => {
                             // Go to the next node.
                             bucket = internal as usize;
                         }

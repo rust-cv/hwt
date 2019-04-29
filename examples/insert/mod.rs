@@ -28,7 +28,8 @@ fn bench_insert(c: &mut Criterion) {
                 });
             },
             all_sizes,
-        ),
+        )
+        .throughput(|&n| Throughput::Elements(n as u32)),
     );
 }
 

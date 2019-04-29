@@ -8,7 +8,7 @@ To understand how the data structure works, please see [the docs](https://docs.r
 
 Most recent benchmark for 1-NN:
 
-![1-NN Benchmark](http://vadixidav.github.io/hwt/2019_04_28/neighbors/report/lines.svg)
+![1-NN Benchmark](http://vadixidav.github.io/hwt/983f0dcf0b7cc8f237d5771817414df2a22e1239/neighbors/report/lines.svg)
 
 You can find benchmark output [here](http://vadixidav.github.io/hwt/).
 

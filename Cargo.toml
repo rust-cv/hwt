@@ -1,7 +1,7 @@
 [package]
 name = "hwt"
 description = "Hamming Weight Tree for finding neighbors in Hamming space"
-version = "0.3.2"
+version = "0.4.0"
 authors = ["Geordon Worley <vadixidav@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -21,8 +21,6 @@ log = {version = "0.4.6", features = ["max_level_trace", "release_max_level_warn
 [dev-dependencies]
 criterion = "0.2.10"
 rand = "0.6.5"
-# Enable trace when testing unless benchmarking, then only include warn.
-log = {version = "0.4.6", features = ["max_level_trace", "release_max_level_warn"]}
 simple-logging = "2.0.2"
 chrono = "0.4.6"
 

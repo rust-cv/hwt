@@ -76,93 +76,96 @@ fn compare_to_linear() -> std::io::Result<()> {
     let mut rng = SmallRng::from_seed([5; 16]);
     let space = rng
         .sample_iter(&rand::distributions::Standard)
-        .take(80_000)
+        .take(1 << 16)
         .collect::<Vec<u128>>();
     let search = rng
         .sample_iter(&rand::distributions::Standard)
         .take(10)
         .collect::<Vec<u128>>();
 
-    let mut hwt = Hwt::new();
-    for &f in &space {
-        hwt.insert(f);
-    }
+    for i in 0..16 {
+        let space = &space[0..1 << i];
+        let mut hwt = Hwt::new();
+        for &f in space {
+            hwt.insert(f);
+        }
 
-    for f0 in search {
-        let mut neighbors_err0 = [0; 1];
-        let neighbors_err0 = hwt.nearest(
-            f0,
-            128,
-            0,
-            &mut node_queue,
-            &mut feature_heap,
-            &mut neighbors_err0,
-        );
-        let mut neighbors_err1 = [0; 1];
-        let neighbors_err1 = hwt.nearest(
-            f0,
-            128,
-            1,
-            &mut node_queue,
-            &mut feature_heap,
-            &mut neighbors_err1,
-        );
-        let mut neighbors_err2 = [0; 1];
-        let neighbors_err2 = hwt.nearest(
-            f0,
-            128,
-            2,
-            &mut node_queue,
-            &mut feature_heap,
-            &mut neighbors_err2,
-        );
-        let mut neighbors_err3 = [0; 1];
-        let neighbors_err3 = hwt.nearest(
-            f0,
-            128,
-            3,
-            &mut node_queue,
-            &mut feature_heap,
-            &mut neighbors_err3,
-        );
-        assert_eq!(
-            space
-                .iter()
-                .map(|&f1| (f0 ^ f1).count_ones())
-                .min()
-                .unwrap(),
-            (neighbors_err0[0] ^ f0).count_ones()
-        );
+        for &f0 in &search {
+            let mut neighbors_err0 = [0; 1];
+            let neighbors_err0 = hwt.nearest(
+                f0,
+                128,
+                0,
+                &mut node_queue,
+                &mut feature_heap,
+                &mut neighbors_err0,
+            );
+            let mut neighbors_err1 = [0; 1];
+            let neighbors_err1 = hwt.nearest(
+                f0,
+                128,
+                1,
+                &mut node_queue,
+                &mut feature_heap,
+                &mut neighbors_err1,
+            );
+            let mut neighbors_err2 = [0; 1];
+            let neighbors_err2 = hwt.nearest(
+                f0,
+                128,
+                2,
+                &mut node_queue,
+                &mut feature_heap,
+                &mut neighbors_err2,
+            );
+            let mut neighbors_err3 = [0; 1];
+            let neighbors_err3 = hwt.nearest(
+                f0,
+                128,
+                3,
+                &mut node_queue,
+                &mut feature_heap,
+                &mut neighbors_err3,
+            );
+            assert_eq!(
+                space
+                    .iter()
+                    .map(|&f1| (f0 ^ f1).count_ones())
+                    .min()
+                    .unwrap(),
+                (neighbors_err0[0] ^ f0).count_ones()
+            );
 
-        assert!(
-            space
-                .iter()
-                .map(|&f1| (f0 ^ f1).count_ones())
-                .min()
-                .unwrap()
-                + 1
-                >= (neighbors_err1[0] ^ f0).count_ones()
-        );
+            assert!(
+                space
+                    .iter()
+                    .map(|&f1| (f0 ^ f1).count_ones())
+                    .min()
+                    .unwrap()
+                    + 1
+                    >= (neighbors_err1[0] ^ f0).count_ones()
+            );
 
-        assert!(
-            space
-                .iter()
-                .map(|&f1| (f0 ^ f1).count_ones())
-                .min()
-                .unwrap()
-                + 2
-                >= (neighbors_err2[0] ^ f0).count_ones()
-        );
+            assert!(
+                space
+                    .iter()
+                    .map(|&f1| (f0 ^ f1).count_ones())
+                    .min()
+                    .unwrap()
+                    + 2
+                    >= (neighbors_err2[0] ^ f0).count_ones()
+            );
 
-        assert!(
-            space
-                .iter()
-                .map(|&f1| (f0 ^ f1).count_ones())
-                .min()
-                .unwrap()
-                + 3
-                >= (neighbors_err3[0] ^ f0).count_ones()
-        );
+            assert!(
+                space
+                    .iter()
+                    .map(|&f1| (f0 ^ f1).count_ones())
+                    .min()
+                    .unwrap()
+                    + 3
+                    >= (neighbors_err3[0] ^ f0).count_ones()
+            );
+        }
     }
 
     Ok(())

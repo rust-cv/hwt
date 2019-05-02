@@ -262,14 +262,23 @@ impl Hwt {
             feature,
             feature.count_ones()
         );
-        let indices = indices128(feature);
+        let indices;
         let leaf_distance = |f: &u128| (f ^ feature).count_ones();
         // Expand the root node.
         match &self.internals[0] {
             Internal::Vec(v) => {
                 trace!("nearest sole leaf node len({})", v.len());
                 // Fill dest with as many elements as possible.
-                if v.len() < dest.len() {
+                if dest.len() == 1 {
+                    // In this special case we can get better performance.
+                    return match v.iter().cloned().min_by_key(leaf_distance) {
+                        Some(l) => {
+                            dest[0] = l;
+                            dest
+                        }
+                        None => [].as_mut(),
+                    };
+                } else if v.len() < dest.len() {
                     let retslice = &mut dest[0..v.len()];
                     retslice.copy_from_slice(v.as_slice());
                     retslice.sort_unstable_by_key(leaf_distance);
@@ -294,6 +303,7 @@ impl Hwt {
             }
             Internal::Map(m) => {
                 trace!("nearest emptying root len({})", m.len());
+                indices = indices128(feature);
                 node_queue.clear();
                 feature_heap.reset(dest.len(), feature);
                 for (distance, node) in m

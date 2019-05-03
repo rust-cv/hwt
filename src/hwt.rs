@@ -10,7 +10,7 @@ use swar::*;
 ///
 /// Since we do a brute force search in an internal node with < `TAU` leaves,
 /// this also defines the threshold at which a vector must be split into a hash table.
-const TAU: usize = 1 << 16;
+const TAU: usize = 1 << 17;
 
 /// The threshold at which we change to precision search for each level of the tree.
 /// The reason this is different for each level is that `search_exact2` and
@@ -21,9 +21,9 @@ const TAU: usize = 1 << 16;
 const TABLE_TAUS: [usize; 7] = [
     START_TAU_MAG,
     START_TAU_MAG << 1,
+    START_TAU_MAG << 1,
     START_TAU_MAG << 2,
     START_TAU_MAG << 2,
-    START_TAU_MAG << 3,
     START_TAU_MAG << 5,
     START_TAU_MAG << 6,
 ];

@@ -49,23 +49,27 @@ impl FeatureHeap {
                 self.add_one(feature);
             }
         } else {
-            let mut chunks = features.chunks_exact(4);
+            let (before, aligned, after) = unsafe { features.align_to::<u128x4>() };
             let search = u128x4::splat(self.search);
             let mut worst = u8x4::splat(self.worst as u8);
-            for chunk in &mut chunks {
-                let feature = u128x4::from_slice_unaligned(chunk);
+            for &feature in before {
+                self.add_one_cap(feature);
+            }
+            for &feature in aligned {
                 let distance: u8x4 = (feature ^ search).count_ones().cast();
                 // If anything is less than the worst.
                 if (distance - worst).bitmask() != 0 {
+                    let mut local = [0; 4];
+                    feature.write_to_slice_unaligned(&mut local);
                     // Do the normal horizontal version.
-                    for &feature in chunk {
+                    for &feature in &local {
                         self.add_one_cap(feature);
                         // Update the worst vector (since it may have changed).
                         worst = u8x4::splat(self.worst as u8);
                     }
                 }
             }
-            for &feature in chunks.remainder() {
+            for &feature in after {
                 self.add_one_cap(feature);
             }
         }

@@ -18,7 +18,7 @@ use std::rc::Rc;
 const BIT_DIFF_PROBABILITY_OF_INLIER: f64 = 0.0859;
 
 fn bench_neighbors(c: &mut Criterion) {
-    let space_mags = 0..=24;
+    let space_mags = 28..=28;
     let all_sizes = (space_mags).map(|n| 2usize.pow(n));
     let mut rng = SmallRng::from_seed([5; 16]);
     // Get the bigest input size and then generate all inputs from that.
